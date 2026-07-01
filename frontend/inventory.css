@@ -1,0 +1,249 @@
+/* ===================================================
+   inventory.css — Inventory Forecast Page Styles
+   Import AFTER shared.css
+   =================================================== */
+
+/* ── Progress Bar ─────────────────────────────────── */
+.progress-bar-wrap {
+  background: var(--surface2);
+  border-radius: 4px;
+  height: 10px;
+  overflow: hidden;
+  flex: 1;
+  min-width: 80px;
+}
+
+.progress-bar-fill {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* ── Velocity Cards ───────────────────────────────── */
+.velocity-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1rem 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  position: relative;
+  overflow: hidden;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.velocity-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--glow), var(--shadow);
+}
+
+.velocity-card::after {
+  content: '';
+  position: absolute;
+  bottom: 0; left: 0; right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, var(--deep-red), var(--gold));
+}
+
+.velocity-rank {
+  position: absolute;
+  top: 0.75rem;
+  right: 0.9rem;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: rgba(230, 163, 65, 0.12);
+  line-height: 1;
+  pointer-events: none;
+}
+
+.velocity-title {
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 85%;
+}
+
+.velocity-val {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 1.35rem;
+  color: var(--gold);
+  line-height: 1.2;
+}
+
+.velocity-sub {
+  font-size: 0.75rem;
+  color: var(--text-dim);
+}
+
+/* ── Forecast Meta Cards ──────────────────────────── */
+.forecast-meta {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 0.75rem;
+  margin-top: 1.25rem;
+}
+
+.forecast-meta-card {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.85rem 1rem;
+  text-align: center;
+  transition: border-color 0.2s;
+}
+
+.forecast-meta-card:hover {
+  border-color: rgba(230, 163, 65, 0.4);
+}
+
+.forecast-meta-label {
+  font-family: 'Cinzel', serif;
+  font-size: 0.65rem;
+  letter-spacing: 0.12em;
+  color: var(--text-dim);
+  text-transform: uppercase;
+}
+
+.forecast-meta-val {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 1.5rem;
+  color: var(--gold-lt);
+  margin-top: 0.3rem;
+  line-height: 1.1;
+}
+
+/* ── Progress Item Row ────────────────────────────── */
+.progress-item {
+  margin-bottom: 0.8rem;
+}
+
+.progress-item-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.78rem;
+  margin-bottom: 0.28rem;
+  gap: 0.5rem;
+}
+
+.progress-item-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 62%;
+  color: var(--text);
+}
+
+.progress-item-stock {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.76rem;
+  flex-shrink: 0;
+}
+
+.progress-item-footer {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.progress-days {
+  font-size: 0.7rem;
+  color: var(--text-dim);
+  white-space: nowrap;
+  flex-shrink: 0;
+  min-width: 38px;
+  text-align: right;
+}
+
+/* ── Sort Arrow ───────────────────────────────────── */
+.sort-arrow {
+  font-size: 0.7rem;
+  margin-left: 0.3rem;
+  opacity: 0.4;
+  transition: opacity 0.15s;
+}
+.sort-arrow.active {
+  opacity: 1;
+  color: var(--gold-lt);
+}
+
+/* ── Add Stock Form ───────────────────────────────── */
+.addstock-wrapper {
+  max-width: 500px;
+  margin: 0 auto;
+}
+
+.addstock-wrapper .btn {
+  margin-top: 0.25rem;
+}
+
+/* ── Tab Layout Overrides ─────────────────────────── */
+#tab-overview .grid-2 {
+  margin-bottom: 1.25rem;
+}
+
+/* Scrollable progress card */
+.progress-scroll-card {
+  overflow-y: auto;
+  max-height: 440px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+
+/* ── Urgency Legend ───────────────────────────────── */
+.urgency-legend {
+  display: flex;
+  gap: 1.25rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.75rem;
+}
+
+.urgency-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.78rem;
+  color: var(--text-dim);
+}
+
+.urgency-legend-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+
+/* ── Forecast Placeholder ─────────────────────────── */
+#forecast-placeholder {
+  margin-top: 1rem;
+}
+
+/* ── Responsive ───────────────────────────────────── */
+@media (max-width: 768px) {
+  .forecast-meta {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  #tab-overview .grid-2 {
+    grid-template-columns: 1fr;
+  }
+
+  .progress-scroll-card {
+    max-height: 300px;
+  }
+}
+
+@media (max-width: 480px) {
+  .forecast-meta {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .velocity-val {
+    font-size: 1.1rem;
+  }
+}

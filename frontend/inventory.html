@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>DVD Rental — Inventory Forecast</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎬</text></svg>">
+<link rel="stylesheet" href="shared.css"/>
+<link rel="stylesheet" href="inventory.css"/>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+</head>
+<body>
+<div class="loading-overlay" id="loading"><div class="spinner"></div><div class="loading-text">LOADING INVENTORY…</div></div>
+<nav class="navbar">
+  <a href="index.html" class="navbar-brand"><span class="logo-icon">🎬</span> DVD Rental</a>
+  <ul class="navbar-nav">
+    <li><a href="index.html" class="nav-link">Home</a></li>
+    <li><a href="analysis.html" class="nav-link">Analysis</a></li>
+    <li><a href="inventory.html" class="nav-link active">Inventory</a></li>
+    <li><a href="prediction.html" class="nav-link">Prediction</a></li>
+  </ul>
+</nav>
+<div class="main-container">
+  <div class="page-header">
+    <h1>Inventory Forecast</h1>
+    <p>Monitor stock levels, predict depletion, and add inventory in real-time.</p>
+  </div>
+  <div id="error-msg" style="display:none;" class="alert alert-error"><span>⚠</span> <span id="error-text"></span></div>
+  <div class="tabs">
+    <button class="tab-btn active" onclick="switchTab('overview',this)">📦 Stock Overview</button>
+    <button class="tab-btn" onclick="switchTab('addstock',this)">➕ Add Stock</button>
+  </div>
+
+  <!-- TAB 1 -->
+  <div class="tab-content active" id="tab-overview">
+    <div class="urgency-legend">
+      <div class="urgency-legend-item"><div class="urgency-legend-dot" style="background:#E84A2D;"></div> CRITICAL (≤3 days)</div>
+      <div class="urgency-legend-item"><div class="urgency-legend-dot" style="background:#FF8C42;"></div> WARNING (4-7 days)</div>
+      <div class="urgency-legend-item"><div class="urgency-legend-dot" style="background:#4a90d9;"></div> OK (&gt;7 days)</div>
+    </div>
+    <div class="grid-2" style="margin-bottom:1.25rem;">
+      <div class="card"><div class="card-title">Top 25 — Days to Empty</div><div style="height:380px;"><canvas id="urgencyChart"></canvas></div></div>
+      <div class="card progress-scroll-card"><div class="card-title">Top 20 Urgent — Stock Progress</div><div id="progress-bars"></div></div>
+    </div>
+    <div class="card">
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:1rem;margin-bottom:1rem;">
+        <div class="card-title" style="margin:0;">All Inventory</div>
+        <div style="display:flex;gap:0.5rem;flex-wrap:wrap;align-items:center;">
+          <input type="text" class="search-input" id="inv-search" placeholder="🔍 Search film…" oninput="filterInvTable()" style="max-width:220px;">
+          <select class="form-control" id="status-filter" onchange="filterInvTable()" style="max-width:160px;">
+            <option value="">All Status</option>
+            <option value="CRITICAL">CRITICAL</option>
+            <option value="WARNING">WARNING</option>
+            <option value="OK">OK</option>
+          </select>
+        </div>
+      </div>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr>
+              <th onclick="sortInvTable('title')">Film <span class="sort-arrow" id="is-title">↕</span></th>
+              <th onclick="sortInvTable('current_stock')">Stock <span class="sort-arrow" id="is-stock">↕</span></th>
+              <th onclick="sortInvTable('rental_per_day')">Rental/Day <span class="sort-arrow" id="is-rpd">↕</span></th>
+              <th onclick="sortInvTable('days_to_empty')">Days to Empty <span class="sort-arrow" id="is-dte">↕</span></th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody id="inv-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+
+
+  <!-- TAB 4 -->
+  <div class="tab-content" id="tab-addstock">
+    <div class="card addstock-wrapper">
+      <div class="card-title">➕ Add Inventory Stock</div>
+      <div id="addstock-alert" style="display:none;" class="alert alert-success"></div>
+      <div class="form-group"><label class="form-label">Film</label>
+        <select class="form-control" id="addstock-film"><option value="">— Select a film —</option></select>
+      </div>
+      <div class="form-group"><label class="form-label">Store</label>
+        <select class="form-control" id="addstock-store"><option value="1">Store 1</option><option value="2">Store 2</option></select>
+      </div>
+      <div class="form-group"><label class="form-label">Quantity to Add</label>
+        <input type="number" class="form-control" id="addstock-qty" min="1" max="100" value="1"/>
+      </div>
+      <button class="btn btn-gold" onclick="submitAddStock()" style="width:100%;">➕ Add Stock</button>
+    </div>
+  </div>
+</div>
+
+<button id="ai-fab" title="AI Assistant">🤖</button>
+<div id="ai-modal">
+  <div id="ai-modal-backdrop"></div>
+  <div id="ai-modal-box">
+    <div id="ai-modal-header"><span>🤖</span><h3>DVD Rental AI Assistant</h3><button id="ai-modal-close">✕</button></div>
+    <div id="ai-chat-messages"></div>
+    <div id="ai-chat-input-row">
+      <textarea id="ai-chat-input" rows="1" placeholder="Ask me anything…"></textarea>
+      <button id="ai-send-btn">➤</button>
+    </div>
+  </div>
+</div>
+
+<script src="ai-popup.js"></script>
+<script>
+Chart.defaults.color='rgba(245,230,200,0.7)';
+Chart.defaults.borderColor='rgba(230,163,65,0.12)';
+let allInventory=[],tableData=[],sortCol=null,sortDir='desc';
+let urgencyChart=null,velocityChart=null,forecastChart=null;
+
+function switchTab(id,btn){
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+  document.querySelectorAll('.tab-content').forEach(t=>t.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('tab-'+id).classList.add('active');
+}
+function barColor(d){ if(!d.days_to_empty||d.days_to_empty<=3)return'#E84A2D'; if(d.days_to_empty<=7)return'#FF8C42'; return'#4a90d9'; }
+function badgeForStatus(s){ if(s==='CRITICAL')return'<span class="badge badge-critical">'+s+'</span>'; if(s==='WARNING')return'<span class="badge badge-warning">'+s+'</span>'; return'<span class="badge badge-ok">'+s+'</span>'; }
+
+function buildUrgencyChart(data){
+  const sorted=[...data].filter(d=>d.days_to_empty!=null).sort((a,b)=>a.days_to_empty-b.days_to_empty).slice(0,25);
+  const ctx=document.getElementById('urgencyChart').getContext('2d');
+  if(urgencyChart)urgencyChart.destroy();
+  urgencyChart=new Chart(ctx,{type:'bar',data:{labels:sorted.map(d=>d.title.length>20?d.title.slice(0,20)+'…':d.title),datasets:[{data:sorted.map(d=>d.days_to_empty),backgroundColor:sorted.map(d=>barColor(d)),borderWidth:0,borderRadius:3}]},options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{backgroundColor:'#1e0200',borderColor:'rgba(230,163,65,0.3)',borderWidth:1,titleColor:'#E6A341',bodyColor:'#f5e6c8',callbacks:{label:ctx=>`${ctx.raw.toFixed(1)} days`}}},scales:{x:{grid:{color:'rgba(230,163,65,0.06)'},ticks:{font:{family:'JetBrains Mono,monospace',size:10}}},y:{grid:{display:false},ticks:{font:{size:10}}}}}});
+}
+
+function buildProgressBars(data){
+  const sorted=[...data].sort((a,b)=>(a.days_to_empty||9999)-(b.days_to_empty||9999)).slice(0,20);
+  const maxStock=Math.max(...sorted.map(d=>d.current_stock),1);
+  const container=document.getElementById('progress-bars');
+  container.innerHTML='';
+  sorted.forEach(d=>{
+    const pct=Math.min(100,(d.current_stock/maxStock)*100);
+    const color=barColor(d);
+    const div=document.createElement('div');
+    div.className='progress-item';
+    div.innerHTML=`<div class="progress-item-header"><span class="progress-item-title" title="${d.title}">${d.title}</span><span class="progress-item-stock" style="color:${color};">${d.current_stock} units</span></div><div class="progress-item-footer"><div class="progress-bar-wrap"><div class="progress-bar-fill" style="width:${pct}%;background:${color};"></div></div><span class="progress-days">${d.days_to_empty!=null?d.days_to_empty.toFixed(1)+'d':'—'}</span></div>`;
+    container.appendChild(div);
+  });
+}
+
+function renderInvTable(data){
+  const tbody=document.getElementById('inv-tbody');
+  tbody.innerHTML='';
+  data.forEach(d=>{
+    const tr=document.createElement('tr');
+    tr.innerHTML=`<td>${d.title}</td><td style="font-family:'JetBrains Mono',monospace;">${d.current_stock}</td><td style="font-family:'JetBrains Mono',monospace;">${d.rental_per_day!=null?d.rental_per_day.toFixed(2):'—'}</td><td style="font-family:'JetBrains Mono',monospace;">${d.days_to_empty!=null?d.days_to_empty.toFixed(1):'—'}</td><td>${badgeForStatus(d.stock_status)}</td>`;
+    tbody.appendChild(tr);
+  });
+}
+
+function filterInvTable(){
+  const q=document.getElementById('inv-search').value.toLowerCase();
+  const st=document.getElementById('status-filter').value;
+  let fd=[...tableData];
+  if(q)fd=fd.filter(d=>d.title.toLowerCase().includes(q));
+  if(st)fd=fd.filter(d=>d.stock_status===st);
+  renderInvTable(fd);
+}
+
+function sortInvTable(col){
+  if(sortCol===col)sortDir=sortDir==='desc'?'asc':'desc'; else{sortCol=col;sortDir='desc';}
+  document.querySelectorAll('.sort-arrow').forEach(el=>{el.classList.remove('active');el.textContent='↕';});
+  const idMap={title:'is-title',current_stock:'is-stock',rental_per_day:'is-rpd',days_to_empty:'is-dte'};
+  const arrow=document.getElementById(idMap[col]);
+  if(arrow){arrow.classList.add('active');arrow.textContent=sortDir==='desc'?'↓':'↑';}
+  tableData.sort((a,b)=>{const va=a[col]??-1,vb=b[col]??-1; if(typeof va==='string')return sortDir==='desc'?vb.localeCompare(va):va.localeCompare(vb); return sortDir==='desc'?vb-va:va-vb;});
+  filterInvTable();
+}
+
+function buildVelocityChart(data){
+  const cards=document.getElementById('top5-velocity-cards');
+  if(!cards)return;
+  const sorted=[...data].filter(d=>d.rental_per_day>0).sort((a,b)=>b.rental_per_day-a.rental_per_day).slice(0,20);
+  cards.innerHTML='';
+  sorted.slice(0,5).forEach((d,i)=>{
+    const div=document.createElement('div');
+    div.className='velocity-card';
+    div.innerHTML=`<div class="velocity-rank">#${i+1}</div><div class="velocity-title" title="${d.title}">${d.title}</div><div class="velocity-val">${d.rental_per_day.toFixed(2)}</div><div class="velocity-sub">rentals/day &bull; stock: ${d.current_stock}</div>`;
+    cards.appendChild(div);
+  });
+  const chartCanvas=document.getElementById('velocityChart');
+  if(!chartCanvas)return;
+  const ctx=chartCanvas.getContext('2d');
+  if(velocityChart)velocityChart.destroy();
+  const greens=sorted.map((_,i)=>`hsl(${130-i*3},${70-i*1.5}%,${55-i*0.8}%)`);
+  velocityChart=new Chart(ctx,{type:'bar',data:{labels:sorted.map(d=>d.title.length>22?d.title.slice(0,22)+'…':d.title),datasets:[{data:sorted.map(d=>d.rental_per_day),backgroundColor:greens,borderWidth:0,borderRadius:4}]},options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{backgroundColor:'#1e0200',borderColor:'rgba(230,163,65,0.3)',borderWidth:1,titleColor:'#E6A341',bodyColor:'#f5e6c8',callbacks:{label:ctx=>`${ctx.raw.toFixed(3)} rentals/day`}}},scales:{x:{grid:{color:'rgba(230,163,65,0.06)'},ticks:{font:{family:'JetBrains Mono,monospace',size:10}}},y:{grid:{display:false},ticks:{font:{size:10}}}}}});
+}
+
+async function populateDropdowns(){
+  try{
+    const res=await fetch(BASE_URL+'/api/inventory/films');
+    const films=await res.json();
+    const s1=document.getElementById('forecast-film-select');
+    const s2=document.getElementById('addstock-film');
+    films.forEach(f=>{
+      if(s1) s1.appendChild(new Option(f.title,f.film_id));
+      if(s2) s2.appendChild(new Option(f.title,f.film_id));
+    });
+  }catch(e){console.warn('Dropdown error:',e);}
+}
+
+function computeSMA(values,w){return values.map((_,i)=>{if(i<w-1)return null;const slice=values.slice(i-w+1,i+1);return slice.reduce((s,v)=>s+v,0)/w;});}
+
+// ============================================================
+// RUN FORECAST - WITH 12 WEEKS PREDICTION (3 MONTHS)
+// ============================================================
+async function runForecast() {
+  const select = document.getElementById('forecast-film-select');
+  if (!select) return;
+  const filmId = select.value;
+  if (!filmId) return;
+  const w = parseInt(document.getElementById('sma-window')?.value || '4', 10);
+  
+  // === CHANGE THIS VALUE FOR DIFFERENT FORECAST PERIOD ===
+  const FORECAST_WEEKS = 12;  // Options: 4 (1 month), 8 (2 months), 12 (3 months), 26 (6 months), 52 (1 year)
+  // =======================================================
+  
+  try {
+    const res = await fetch(BASE_URL + '/api/inventory/weekly/' + filmId);
+    const data = await res.json();
+    const placeholder = document.getElementById('forecast-placeholder');
+    const chartCard = document.getElementById('forecast-chart-card');
+    if (!data.length) { placeholder.style.display = 'flex'; chartCard.style.display = 'none'; return; }
+    
+    placeholder.style.display = 'none';
+    chartCard.style.display = 'block';
+    
+    const labels = data.map(d => d.week_start_date);
+    const actuals = data.map(d => d.weekly_rentals);
+    const sma = computeSMA(actuals, w);
+    const validSma = sma.filter(v => v !== null);
+    const lastSMA = validSma.at(-1) || 0;
+    const mean = validSma.length ? validSma.reduce((s, v) => s + v, 0) / validSma.length : 0;
+    const stdDev = validSma.length ? Math.sqrt(validSma.reduce((s, v) => s + (v - mean) ** 2, 0) / validSma.length) : 0;
+    
+    // Calculate trend from recent data
+    const recentActuals = actuals.slice(-12);
+    let trend = 0;
+    if (recentActuals.length >= 6) {
+      const firstHalf = recentActuals.slice(0, recentActuals.length / 2).reduce((a, b) => a + b, 0) / (recentActuals.length / 2);
+      const secondHalf = recentActuals.slice(-recentActuals.length / 2).reduce((a, b) => a + b, 0) / (recentActuals.length / 2);
+      trend = (secondHalf - firstHalf) / (recentActuals.length / 2);
+    }
+    
+    // Generate FORECAST for N weeks ahead
+    const forecastValues = [];
+    const forecastLabels = [];
+    const lastDate = new Date(data[data.length - 1].week_start_date);
+    
+    for (let i = 1; i <= FORECAST_WEEKS; i++) {
+      const forecastDate = new Date(lastDate);
+      forecastDate.setDate(lastDate.getDate() + (i * 7));
+      const month = forecastDate.getMonth();
+      
+      // Seasonal factors based on month
+      let seasonalFactor = 1.0;
+      if (month === 11) seasonalFactor = 1.45;      // December peak
+      else if (month === 0) seasonalFactor = 0.80;  // January slow
+      else if (month === 1) seasonalFactor = 0.85;  // February slow
+      else if (month === 6 || month === 7) seasonalFactor = 1.15; // Summer peak
+      else if (month === 4 || month === 5) seasonalFactor = 1.10; // Spring increase
+      else seasonalFactor = 1.0;
+      
+      let forecastValue = lastSMA + (trend * i);
+      forecastValue = forecastValue * seasonalFactor;
+      forecastValue = Math.max(0, Math.round(forecastValue));
+      forecastValues.push(forecastValue);
+      
+      const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      forecastLabels.push(`${monthNames[month]} ${forecastDate.getFullYear()}`);
+    }
+    
+    const nullPad = Array(labels.length).fill(null);
+    const forecastNullPad = Array(FORECAST_WEEKS).fill(null);
+    
+    const ctx = document.getElementById('forecastChart').getContext('2d');
+    if (forecastChart) forecastChart.destroy();
+    
+    forecastChart = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: [...labels, ...forecastLabels],
+        datasets: [
+          {
+            label: 'Actual Rentals',
+            data: [...actuals, ...forecastNullPad],
+            borderColor: '#E6A341',
+            backgroundColor: 'rgba(230,163,65,0.08)',
+            pointRadius: 4,
+            pointBackgroundColor: '#E6A341',
+            tension: 0.15
+          },
+          {
+            label: `SMA (${w}w)`,
+            data: [...sma, ...forecastNullPad],
+            borderColor: '#FF6B35',
+            borderWidth: 2,
+            borderDash: [5, 4],
+            pointRadius: 0,
+            tension: 0.4,
+            fill: false
+          },
+          {
+            label: `Forecast (${FORECAST_WEEKS} weeks)`,
+            data: [...nullPad, ...forecastValues],
+            borderColor: '#FCE079',
+            borderWidth: 3,
+            borderDash: [8, 4],
+            backgroundColor: 'rgba(254,206,121,0.1)',
+            fill: true,
+            pointRadius: 5,
+            pointBackgroundColor: '#FCE079',
+            tension: 0.2
+          },
+          {
+            label: 'Upper Bound (80% CI)',
+            data: [...nullPad, ...forecastValues.map(v => v + (stdDev * 1.28))],
+            borderColor: 'rgba(254,206,121,0.25)',
+            borderDash: [2, 4],
+            pointRadius: 0,
+            fill: false
+          },
+          {
+            label: 'Lower Bound (80% CI)',
+            data: [...nullPad, ...forecastValues.map(v => Math.max(0, v - (stdDev * 1.28)))],
+            borderColor: 'rgba(254,206,121,0.25)',
+            borderDash: [2, 4],
+            pointRadius: 0,
+            fill: '-1',
+            backgroundColor: 'rgba(254,206,121,0.05)'
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { labels: { color: '#f5e6c8', font: { size: 10 } } },
+          tooltip: {
+            backgroundColor: '#1e0200',
+            borderColor: 'rgba(230,163,65,0.3)',
+            borderWidth: 1,
+            titleColor: '#E6A341',
+            bodyColor: '#f5e6c8'
+          }
+        },
+        scales: {
+          x: { grid: { color: 'rgba(230,163,65,0.06)' }, ticks: { font: { size: 9 }, maxRotation: 45 } },
+          y: { grid: { color: 'rgba(230,163,65,0.06)' }, ticks: { font: { size: 10 } } }
+        }
+      }
+    });
+    
+    // Update meta information
+    const avgActual = actuals.reduce((s, v) => s + v, 0) / actuals.length;
+    const totalForecast = forecastValues.reduce((s, v) => s + v, 0);
+    const avgForecast = totalForecast / FORECAST_WEEKS;
+    const peakForecast = Math.max(...forecastValues);
+    const peakIndex = forecastValues.indexOf(peakForecast);
+    const peakMonth = forecastLabels[peakIndex] || 'Unknown';
+    const trendDirection = trend > 0 ? 'INCREASING' : (trend < 0 ? 'DECREASING' : 'STABLE');
+    const trendColor = trend > 0 ? '#2ecc71' : (trend < 0 ? '#e74c3c' : '#f39c12');
+    const trendArrow = trend > 0 ? '⬆' : (trend < 0 ? '⬇' : '➡');
+    
+    document.getElementById('forecast-meta').innerHTML = `
+      <div class="forecast-meta-card">
+        <div class="forecast-meta-label">📊 ${FORECAST_WEEKS}-Week Forecast</div>
+        <div class="forecast-meta-val">${Math.round(totalForecast)} total units</div>
+      </div>
+      <div class="forecast-meta-card">
+        <div class="forecast-meta-label">📈 Weekly Average</div>
+        <div class="forecast-meta-val">${Math.round(avgForecast)} units/week</div>
+      </div>
+      <div class="forecast-meta-card">
+        <div class="forecast-meta-label">🔮 Peak Forecast</div>
+        <div class="forecast-meta-val">${Math.round(peakForecast)} units (${peakMonth})</div>
+      </div>
+      <div class="forecast-meta-card">
+        <div class="forecast-meta-label">📉 Trend</div>
+        <div class="forecast-meta-val" style="color:${trendColor}">${trendArrow} ${trendDirection}</div>
+      </div>
+    `;
+    
+    const filmName = document.getElementById('forecast-film-select').selectedOptions[0]?.text || 'Selected Film';
+    document.getElementById('forecast-title').textContent = `Forecast — ${filmName} (${FORECAST_WEEKS} weeks ahead)`;
+    
+  } catch (e) {
+    console.error('Forecast error:', e);
+  }
+}
+
+async function submitAddStock(){
+  const film_id=parseInt(document.getElementById('addstock-film').value);
+  const store_id=parseInt(document.getElementById('addstock-store').value);
+  const quantity=parseInt(document.getElementById('addstock-qty').value);
+  const alertEl=document.getElementById('addstock-alert');
+  if(!film_id){alertEl.style.display='flex';alertEl.className='alert alert-error';alertEl.textContent='Please select a film first.';return;}
+  if(!quantity||quantity<1){alertEl.style.display='flex';alertEl.className='alert alert-error';alertEl.textContent='Quantity must be at least 1.';return;}
+  try{
+    const res=await fetch(BASE_URL+'/api/inventory/add-stock',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({film_id,store_id,quantity})});
+    const data=await res.json();
+    if(!res.ok)throw new Error(data.detail||'Unknown error');
+    alertEl.style.display='flex';alertEl.className='alert alert-success';alertEl.textContent='✔ '+data.message;
+    await loadInventoryData();
+  }catch(e){alertEl.style.display='flex';alertEl.className='alert alert-error';alertEl.textContent='⚠ Failed: '+e.message;}
+}
+
+async function loadInventoryData(){
+  const res=await fetch(BASE_URL+'/api/inventory/summary');
+  if(!res.ok)throw new Error('HTTP '+res.status);
+  allInventory=await res.json();
+  tableData=[...allInventory];
+  buildUrgencyChart(allInventory);
+  buildProgressBars(allInventory);
+  buildVelocityChart(allInventory);
+  renderInvTable(tableData);
+}
+
+async function loadAll(){
+  document.getElementById('loading').style.display='flex';
+  try{await loadInventoryData();await populateDropdowns();}
+  catch(e){document.getElementById('error-msg').style.display='flex';document.getElementById('error-text').textContent='Failed to load data: '+e.message+'. Make sure backend is running at '+BASE_URL;}
+  finally{document.getElementById('loading').style.display='none';}
+}
+loadAll();
+</script>
+</body>
+</html>

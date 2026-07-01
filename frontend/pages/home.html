@@ -1,0 +1,62 @@
+<div class="page-header">
+  <h1>Dashboard Overview</h1>
+  <p>Real-time KPIs · System alerts · Quick navigation</p>
+</div>
+
+<!-- KPI grid -->
+<div class="kpi-grid" id="home-kpis">
+  <div class="kpi-card"><div class="kpi-label">Genres Tracked</div><div class="kpi-value" id="kpi-genres">—</div></div>
+  <div class="kpi-card" style="--accent:#B14A36"><div class="kpi-label">Total Rentals</div><div class="kpi-value" id="kpi-rentals">—</div></div>
+  <div class="kpi-card" style="--accent:#8C0902"><div class="kpi-label">Total Revenue</div><div class="kpi-value" id="kpi-revenue">—</div></div>
+  <div class="kpi-card" style="--accent:#FECE79"><div class="kpi-label">Top Genre</div><div class="kpi-value" id="kpi-top-genre" style="font-size:1.1rem;padding-top:.35rem">—</div></div>
+  <div class="kpi-card" style="--accent:#B14A36"><div class="kpi-label">Critical Stock</div><div class="kpi-value" id="kpi-critical" style="color:#8C0902">—</div></div>
+</div>
+
+<!-- Alerts area -->
+<div id="home-alerts"></div>
+
+<!-- Feature cards -->
+<div class="chart-grid-2">
+  <div class="chart-card" style="cursor:pointer" onclick="window.dispatchEvent(new CustomEvent('navigate',{detail:'movie'}))">
+    <div class="chart-card-header">
+      <div>
+        <div class="chart-title">🎭 Movie Performance</div>
+        <div class="chart-subtitle">Genre · Rating · Revenue · Rental share · Treemap</div>
+      </div>
+      <span style="font-size:1.3rem">→</span>
+    </div>
+    <p style="font-size:.84rem;color:var(--clr-muted)">Integrated analytics combining genre performance, rating impact, and revenue contribution in one strategic view.</p>
+  </div>
+
+  <div class="chart-card" style="cursor:pointer" onclick="window.dispatchEvent(new CustomEvent('navigate',{detail:'ml'}))">
+    <div class="chart-card-header">
+      <div>
+        <div class="chart-title">🚀 Next Big Hit Predictor</div>
+        <div class="chart-subtitle">Random Forest · Popularity score · Feature importance</div>
+      </div>
+      <span style="font-size:1.3rem">→</span>
+    </div>
+    <p style="font-size:.84rem;color:var(--clr-muted)">AI-powered film popularity prediction. Enter any film's attributes to receive a popularity score with explanation.</p>
+  </div>
+
+  <div class="chart-card" style="cursor:pointer" onclick="window.dispatchEvent(new CustomEvent('navigate',{detail:'inventory'}))">
+    <div class="chart-card-header">
+      <div>
+        <div class="chart-title">📦 Inventory Forecast</div>
+        <div class="chart-subtitle">Days-to-empty · SMA · Velocity · Restock form</div>
+      </div>
+      <span style="font-size:1.3rem">→</span>
+    </div>
+    <p style="font-size:.84rem;color:var(--clr-muted)">SMA-based demand forecasting with critical stock alerts and live restock capability.</p>
+  </div>
+
+  <div class="chart-card">
+    <div class="chart-card-header">
+      <div>
+        <div class="chart-title">✦ AI Dashboard Assistant</div>
+        <div class="chart-subtitle">Natural language · Chart manipulation · Instant updates</div>
+      </div>
+    </div>
+    <p style="font-size:.84rem;color:var(--clr-muted)">Use the floating <strong>✦</strong> button (bottom-right) to control any chart. Try: <em>"change revenue chart to doughnut"</em> or <em>"highlight Action genre"</em>.</p>
+  </div>
+</div>

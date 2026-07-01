@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>DVD Rental — Next Big Hit Prediction</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎬</text></svg>">
+<link rel="stylesheet" href="shared.css"/>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+<script src="https://cdn.plot.ly/plotly-2.30.0.min.js"></script>
+<style>
+.predict-grid{display:grid;grid-template-columns:360px 1fr;gap:1.25rem;}
+@media(max-width:900px){.predict-grid{grid-template-columns:1fr;}}
+.gauge-container{display:flex;flex-direction:column;align-items:center;padding:1rem 0;}
+.gauge-score{font-family:'JetBrains Mono',monospace;font-size:2.5rem;font-weight:700;margin-top:-0.5rem;}
+.gauge-label{font-family:'Cinzel',serif;font-size:1rem;letter-spacing:0.12em;text-transform:uppercase;margin-top:0.25rem;}
+.input-mode-tabs{display:flex;gap:0.25rem;margin-bottom:1rem;border-bottom:1px solid var(--border);}
+.input-mode-btn{font-family:'Cinzel',serif;font-size:0.72rem;letter-spacing:0.1em;text-transform:uppercase;background:none;border:none;border-bottom:2px solid transparent;color:var(--text-dim);padding:0.5rem 1rem;cursor:pointer;transition:all 0.2s;}
+.input-mode-btn.active{color:var(--gold);border-bottom-color:var(--gold);}
+
+/* ── SMART SEARCHABLE DROPDOWN ── */
+.film-search-wrapper{position:relative;width:100%;}
+.film-search-input{
+  width:100%;
+  background:var(--surface2);
+  border:1px solid var(--border);
+  border-radius:6px;
+  color:var(--text);
+  padding:0.55rem 2.2rem 0.55rem 0.75rem;
+  font-size:0.88rem;
+  font-family:inherit;
+  box-sizing:border-box;
+  cursor:pointer;
+  transition:border-color 0.2s,box-shadow 0.2s;
+}
+.film-search-input:focus{outline:none;border-color:var(--gold);box-shadow:0 0 0 3px rgba(230,163,65,0.12);}
+.film-search-arrow{
+  position:absolute;right:0.65rem;top:50%;transform:translateY(-50%);
+  pointer-events:none;color:var(--gold);font-size:0.7rem;transition:transform 0.2s;
+}
+.film-search-wrapper.open .film-search-arrow{transform:translateY(-50%) rotate(180deg);}
+.film-dropdown-panel{
+  display:none;
+  position:absolute;top:calc(100% + 4px);left:0;right:0;z-index:999;
+  background:var(--surface2);border:1px solid var(--gold);border-radius:8px;
+  box-shadow:0 8px 32px rgba(0,0,0,0.6);overflow:hidden;
+}
+.film-search-wrapper.open .film-dropdown-panel{display:block;}
+.film-filter-row{
+  display:grid;grid-template-columns:1fr 1fr;gap:0.5rem;
+  padding:0.6rem 0.6rem 0.4rem;
+  border-bottom:1px solid rgba(230,163,65,0.15);
+  background:rgba(230,163,65,0.04);
+}
+.film-filter-row select{
+  background:var(--surface2);border:1px solid var(--border);border-radius:5px;
+  color:var(--text);padding:0.3rem 0.5rem;font-size:0.78rem;font-family:inherit;
+  cursor:pointer;
+}
+.film-filter-row select:focus{outline:none;border-color:var(--gold);}
+.film-search-box{
+  padding:0.5rem 0.6rem;
+  border-bottom:1px solid rgba(230,163,65,0.12);
+}
+.film-search-box input{
+  width:100%;background:rgba(0,0,0,0.3);border:1px solid var(--border);
+  border-radius:5px;color:var(--text);padding:0.4rem 0.6rem;font-size:0.82rem;
+  font-family:'JetBrains Mono',monospace;box-sizing:border-box;
+}
+.film-search-box input:focus{outline:none;border-color:var(--gold);}
+.film-search-box input::placeholder{color:var(--text-dim);}
+.film-options-list{
+  max-height:210px;overflow-y:auto;
+  scrollbar-width:thin;scrollbar-color:var(--gold) transparent;
+}
+.film-options-list::-webkit-scrollbar{width:4px;}
+.film-options-list::-webkit-scrollbar-thumb{background:var(--gold);border-radius:2px;}
+.film-option{
+  padding:0.45rem 0.75rem;cursor:pointer;
+  display:flex;justify-content:space-between;align-items:center;
+  font-size:0.83rem;transition:background 0.15s;
+  border-bottom:1px solid rgba(230,163,65,0.05);
+}
+.film-option:hover{background:rgba(230,163,65,0.1);}
+.film-option.selected{background:rgba(230,163,65,0.15);color:var(--gold);}
+.film-option-title{font-weight:600;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.film-option-meta{
+  font-size:0.72rem;color:var(--text-dim);font-family:'JetBrains Mono',monospace;
+  white-space:nowrap;margin-left:0.5rem;
+}
+.film-options-empty{padding:1rem;text-align:center;color:var(--text-dim);font-size:0.82rem;}
+.film-options-count{
+  padding:0.3rem 0.75rem;font-size:0.72rem;color:var(--text-dim);
+  font-family:'JetBrains Mono',monospace;border-top:1px solid rgba(230,163,65,0.1);
+  background:rgba(0,0,0,0.15);
+}
+</style>
+</head>
+<body>
+<div class="loading-overlay" id="loading"><div class="spinner"></div><div class="loading-text">LOADING PREDICTION ENGINE…</div></div>
+<nav class="navbar">
+  <a href="index.html" class="navbar-brand"><span class="logo-icon">🎬</span> DVD Rental</a>
+  <ul class="navbar-nav">
+    <li><a href="index.html" class="nav-link">Home</a></li>
+    <li><a href="analysis.html" class="nav-link">Analysis</a></li>
+    <li><a href="inventory.html" class="nav-link">Inventory</a></li>
+    <li><a href="prediction.html" class="nav-link active">Prediction</a></li>
+  </ul>
+</nav>
+<div class="main-container">
+  <div class="page-header">
+    <h1>Next Big Hit Prediction</h1>
+    <p>Random Forest ML model predicts film popularity based on its features.</p>
+  </div>
+  <div id="error-msg" style="display:none;" class="alert alert-error"><span>⚠</span> <span id="error-text"></span></div>
+  <div id="model-warn" class="alert alert-info" style="display:none;"><span>ℹ</span> Model not trained yet. Run <code>python train_model.py</code> first.</div>
+
+  <div class="predict-grid">
+    <!-- Input Panel -->
+    <div class="card" style="align-self:start;">
+      <div class="card-title">Film Input</div>
+      <div class="input-mode-tabs">
+        <button class="input-mode-btn active" onclick="switchMode('existing',this)">📂 Select Film</button>
+        <button class="input-mode-btn" onclick="switchMode('manual',this)">✏ Manual Input</button>
+      </div>
+      <div id="mode-existing">
+        <div class="form-group">
+          <label class="form-label">Select Film from Database</label>
+
+          <!-- ── SMART SEARCHABLE DROPDOWN ── -->
+          <div class="film-search-wrapper" id="film-search-wrapper">
+            <input type="text" class="film-search-input" id="film-display-input"
+                   placeholder="— Select a film —" readonly
+                   onclick="toggleFilmDropdown()" />
+            <span class="film-search-arrow">▼</span>
+
+            <div class="film-dropdown-panel" id="film-dropdown-panel">
+              <!-- Filter row: genre + rating -->
+              <div class="film-filter-row">
+                <select id="filter-genre" onchange="filterFilmOptions()">
+                  <option value="">All Genres</option>
+                </select>
+                <select id="filter-rating" onchange="filterFilmOptions()">
+                  <option value="">All Ratings</option>
+                  <option value="G">G</option>
+                  <option value="PG">PG</option>
+                  <option value="PG-13">PG-13</option>
+                  <option value="R">R</option>
+                  <option value="NC-17">NC-17</option>
+                </select>
+              </div>
+              <!-- Text search -->
+              <div class="film-search-box">
+                <input type="text" id="film-text-search"
+                       placeholder="🔍 Type to search by title…"
+                       oninput="filterFilmOptions()" />
+              </div>
+              <!-- Options list -->
+              <div class="film-options-list" id="film-options-list"></div>
+              <div class="film-options-count" id="film-options-count"></div>
+            </div>
+          </div>
+          <!-- Hidden value holder (replaces the old <select>) -->
+          <input type="hidden" id="existing-film-select" />
+        </div>
+      </div>
+      <div id="mode-manual" style="display:none;">
+        <div class="form-group"><label class="form-label">Rating</label>
+          <select class="form-control" id="inp-rating">
+            <option value="G">G</option><option value="PG">PG</option>
+            <option value="PG-13" selected>PG-13</option><option value="R">R</option><option value="NC-17">NC-17</option>
+          </select>
+        </div>
+        <div class="form-group"><label class="form-label">Genre</label>
+          <select class="form-control" id="inp-genre"><option value="">— Loading —</option></select>
+        </div>
+      </div>
+      <div class="form-group"><label class="form-label">Length (minutes)</label><input type="number" class="form-control" id="inp-length" value="110" min="30" max="300"/></div>
+      <div class="form-group"><label class="form-label">Number of Actors</label><input type="number" class="form-control" id="inp-actors" value="5" min="1" max="30"/></div>
+      <div class="form-group"><label class="form-label">Rental Rate ($)</label><input type="number" class="form-control" id="inp-rental-rate" value="2.99" min="0.99" max="9.99" step="0.01"/></div>
+      <div class="form-group"><label class="form-label">Replacement Cost ($)</label><input type="number" class="form-control" id="inp-replace-cost" value="19.99" min="5" max="100" step="0.01"/></div>
+      <div class="form-group"><label class="form-label">Rental Duration (days)</label><input type="number" class="form-control" id="inp-rental-dur" value="5" min="1" max="14"/></div>
+      <button class="btn btn-gold" onclick="runPrediction()" style="width:100%;margin-top:0.5rem;">🔮 Predict Popularity</button>
+    </div>
+
+    <!-- Results Panel -->
+    <div>
+      <div class="card" style="margin-bottom:1.25rem;">
+        <div class="card-title">Popularity Score</div>
+        <div class="gauge-container" id="gauge-container">
+          <div style="color:var(--text-dim);font-size:0.9rem;text-align:center;padding:2rem;">Press "Predict" to see results.</div>
+        </div>
+      </div>
+      <div class="grid-2" style="margin-bottom:1.25rem;">
+        <div class="card" id="feat-imp-card" style="display:none;"><div class="card-title">Feature Importance</div><div style="height:200px;"><canvas id="featImpChart"></canvas></div></div>
+        <div class="card" id="radar-card" style="display:none;"><div class="card-title">Input vs Popular Films Average</div><div style="height:200px;"><canvas id="radarChart"></canvas></div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Top Popular Films -->
+  <div class="card" style="margin-top:1.25rem;">
+    <div class="card-title">Top 10 Most Popular Films</div>
+    <div class="table-wrapper">
+      <table>
+        <thead><tr><th>#</th><th>Film</th><th>Genre</th><th>Rating</th><th>Total Rentals</th><th>Total Revenue</th></tr></thead>
+        <tbody id="popular-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<button id="ai-fab" title="AI Assistant">🤖</button>
+<div id="ai-modal">
+  <div id="ai-modal-backdrop"></div>
+  <div id="ai-modal-box">
+    <div id="ai-modal-header"><span>🤖</span><h3>DVD Rental AI Assistant</h3><button id="ai-modal-close">✕</button></div>
+    <div id="ai-chat-messages"></div>
+    <div id="ai-chat-input-row">
+      <textarea id="ai-chat-input" rows="1" placeholder="Ask me anything…"></textarea>
+      <button id="ai-send-btn">➤</button>
+    </div>
+  </div>
+</div>
+
+<script src="ai-popup.js"></script>
+<script>
+Chart.defaults.color='rgba(245,230,200,0.7)';
+Chart.defaults.borderColor='rgba(230,163,65,0.12)';
+let featImpChart=null,radarChart=null;
+function fmt(n){return'$'+Number(n).toFixed(2);}
+function fmtN(n){return Number(n).toLocaleString('en-US');}
+
+/* ════════════════════════════════════════════
+   SMART SEARCHABLE DROPDOWN — Film Selection
+   ════════════════════════════════════════════ */
+let _allFilms = [];      // full list loaded from /api/films
+let _selectedFilmId = null;
+
+function toggleFilmDropdown() {
+  const wrapper = document.getElementById('film-search-wrapper');
+  const isOpen  = wrapper.classList.contains('open');
+  if (isOpen) { closeFilmDropdown(); } else { openFilmDropdown(); }
+}
+
+function openFilmDropdown() {
+  const wrapper = document.getElementById('film-search-wrapper');
+  wrapper.classList.add('open');
+  // Focus the text search after a tick
+  setTimeout(() => document.getElementById('film-text-search')?.focus(), 50);
+  filterFilmOptions();
+}
+
+function closeFilmDropdown() {
+  document.getElementById('film-search-wrapper').classList.remove('open');
+}
+
+// Close when clicking outside
+document.addEventListener('click', function(e) {
+  const wrapper = document.getElementById('film-search-wrapper');
+  if (wrapper && !wrapper.contains(e.target)) closeFilmDropdown();
+});
+
+function filterFilmOptions() {
+  const textVal   = (document.getElementById('film-text-search')?.value || '').toLowerCase().trim();
+  const genreVal  = document.getElementById('filter-genre')?.value  || '';
+  const ratingVal = document.getElementById('filter-rating')?.value || '';
+  const list      = document.getElementById('film-options-list');
+  const countEl   = document.getElementById('film-options-count');
+
+  const filtered = _allFilms.filter(f => {
+    const matchText   = !textVal   || f.title.toLowerCase().includes(textVal);
+    const matchGenre  = !genreVal  || f.genre_name === genreVal;
+    const matchRating = !ratingVal || f.rating === ratingVal;
+    return matchText && matchGenre && matchRating;
+  });
+
+  list.innerHTML = '';
+  if (!filtered.length) {
+    list.innerHTML = '<div class="film-options-empty">No films match your filters.</div>';
+    countEl.textContent = '0 results';
+    return;
+  }
+
+  countEl.textContent = filtered.length + ' film' + (filtered.length === 1 ? '' : 's');
+
+  filtered.forEach(f => {
+    const div = document.createElement('div');
+    div.className = 'film-option' + (_selectedFilmId == f.film_id ? ' selected' : '');
+    div.innerHTML =
+      '<span class="film-option-title">' + escHtml(f.title) + '</span>' +
+      '<span class="film-option-meta">' + escHtml(f.genre_name) + ' · ' + escHtml(f.rating) + '</span>';
+    div.addEventListener('click', () => selectFilm(f));
+    list.appendChild(div);
+  });
+}
+
+function escHtml(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+function selectFilm(film) {
+  _selectedFilmId = film.film_id;
+  document.getElementById('film-display-input').value = film.title + '  (' + film.genre_name + ' · ' + film.rating + ')';
+  document.getElementById('existing-film-select').value = film.film_id;
+  closeFilmDropdown();
+  autoFillFromFilmData(film);   // fill form immediately from in-memory data
+}
+
+function autoFillFromFilmData(f) {
+  document.getElementById('inp-length').value       = f.length        || 110;
+  document.getElementById('inp-actors').value       = f.num_actors    || 5;
+  document.getElementById('inp-rental-rate').value  = f.rental_rate   || 2.99;
+  document.getElementById('inp-replace-cost').value = f.replacement_cost || 19.99;
+  document.getElementById('inp-rental-dur').value   = f.rental_duration || 5;
+  const rEl = document.getElementById('inp-rating');
+  if (rEl) for(let i=0;i<rEl.options.length;i++) if(rEl.options[i].value===f.rating){rEl.selectedIndex=i;break;}
+  const gEl = document.getElementById('inp-genre');
+  if (gEl) for(let i=0;i<gEl.options.length;i++) if(gEl.options[i].text===f.genre_name){gEl.selectedIndex=i;break;}
+}
+
+// Legacy fetch fallback (kept for compatibility)
+async function autoFillFromFilm(filmId) {
+  if(!filmId) return;
+  const film = _allFilms.find(f => f.film_id == filmId);
+  if (film) { autoFillFromFilmData(film); return; }
+  try{
+    const res=await fetch(BASE_URL+'/api/film/'+filmId);
+    const f=await res.json();
+    autoFillFromFilmData(f);
+  }catch(e){console.warn('autoFill error:',e);}
+}
+
+/* ════════════════════════════════
+   EXISTING CHART / GAUGE CODE
+   (unchanged from original)
+   ════════════════════════════════ */
+
+function switchMode(mode,btn){
+  document.querySelectorAll('.input-mode-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('mode-existing').style.display=mode==='existing'?'block':'none';
+  document.getElementById('mode-manual').style.display=mode==='manual'?'block':'none';
+}
+
+function buildGauge(score,classification){
+  const rad=Math.PI;
+  const cx=100,cy=100,r=80;
+  const angle=(score/100)*rad-rad;
+  const nx=cx+r*Math.cos(angle),ny=cy+r*Math.sin(angle);
+  const color=score<=33?'#e74c3c':score<=66?'#E6A341':'#2ecc71';
+  document.getElementById('gauge-container').innerHTML=`
+    <svg viewBox="0 0 200 120" style="width:200px;height:120px;">
+      <path d="M 20 100 A 80 80 0 0 1 180 100" fill="none" stroke="rgba(230,163,65,0.15)" stroke-width="14" stroke-linecap="round"/>
+      <path d="M 20 100 A 80 80 0 0 1 ${nx} ${ny}" fill="none" stroke="${color}" stroke-width="14" stroke-linecap="round"/>
+      <line x1="100" y1="100" x2="${nx}" y2="${ny}" stroke="${color}" stroke-width="3" stroke-linecap="round"/>
+      <circle cx="100" cy="100" r="5" fill="${color}"/>
+      <text x="18" y="118" font-family="JetBrains Mono" font-size="9" fill="rgba(245,230,200,0.5)">0</text>
+      <text x="155" y="118" font-family="JetBrains Mono" font-size="9" fill="rgba(245,230,200,0.5)">100</text>
+    </svg>
+    <div class="gauge-score" style="color:${color};">${score.toFixed(1)}</div>
+    <div class="gauge-label" style="color:${color};">${classification} Popularity</div>`;
+}
+
+function buildFeatImpChart(data){
+  document.getElementById('feat-imp-card').style.display='block';
+  const ctx=document.getElementById('featImpChart').getContext('2d');
+  if(featImpChart)featImpChart.destroy();
+  const sorted=[...data].sort((a,b)=>a.importance-b.importance);
+  featImpChart=new Chart(ctx,{type:'bar',data:{labels:sorted.map(d=>d.feature),datasets:[{data:sorted.map(d=>d.importance),backgroundColor:['#D63A1A','#E84A2D','#FF6B35','#FF8C42','#F7C35C'],borderWidth:0,borderRadius:4}]},options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{backgroundColor:'#1e0200',borderColor:'rgba(230,163,65,0.3)',borderWidth:1,titleColor:'#E6A341',bodyColor:'#f5e6c8'}},scales:{x:{grid:{color:'rgba(230,163,65,0.06)'},ticks:{font:{family:'JetBrains Mono,monospace',size:10},callback:v=>(v*100).toFixed(1)+'%'}},y:{grid:{display:false},ticks:{font:{size:11}}}}}});
+}
+
+function buildRadarChart(inp,avg){
+  document.getElementById('radar-card').style.display='block';
+  const ctx=document.getElementById('radarChart').getContext('2d');
+  if(radarChart)radarChart.destroy();
+  const keys=['length','rental_rate','replacement_cost','rental_duration','num_actors'];
+  const labels=['Length','Rental Rate','Replace Cost','Duration','Actors'];
+  const norm=(v,a)=>a>0?Math.min(100,(v/(a*2))*100):50;
+  radarChart=new Chart(ctx,{type:'radar',data:{labels,datasets:[{label:'This Film',data:keys.map(k=>norm(inp[k],avg[k])),borderColor:'#E6A341',backgroundColor:'rgba(230,163,65,0.15)',pointBackgroundColor:'#E6A341',borderWidth:2},{label:'Avg Popular',data:keys.map(k=>norm(avg[k],avg[k])),borderColor:'#2ecc71',backgroundColor:'rgba(46,204,113,0.1)',pointBackgroundColor:'#2ecc71',borderWidth:2}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{color:'#f5e6c8',font:{family:'Cinzel,serif',size:10}}},tooltip:{backgroundColor:'#1e0200',borderColor:'rgba(230,163,65,0.3)',borderWidth:1,titleColor:'#E6A341',bodyColor:'#f5e6c8'}},scales:{r:{grid:{color:'rgba(230,163,65,0.1)'},angleLines:{color:'rgba(230,163,65,0.1)'},ticks:{display:false},pointLabels:{color:'#f5e6c8',font:{size:10}}}}}});
+}
+
+function renderPopularFilms(films){
+  const tbody=document.getElementById('popular-tbody');
+  tbody.innerHTML='';
+  films.forEach((f,i)=>{
+    const tr=document.createElement('tr');
+    tr.innerHTML=`<td style="font-family:'JetBrains Mono',monospace;color:var(--gold);">${i+1}</td><td style="font-weight:600;">${f.title}</td><td>${f.genre_name}</td><td><span class="badge" style="background:rgba(230,163,65,0.15);color:var(--gold-lt);border:1px solid var(--border);">${f.rating}</span></td><td style="font-family:'JetBrains Mono',monospace;">${fmtN(f.total_rental)}</td><td style="font-family:'JetBrains Mono',monospace;">${fmt(f.total_revenue)}</td>`;
+    tbody.appendChild(tr);
+  });
+}
+
+/* Store last prediction result so AI popup can read it */
+window._lastPredictionResult = null;
+
+async function runPrediction(){
+  const body={
+    rating:document.getElementById('inp-rating').value||'PG-13',
+    genre_name:document.getElementById('inp-genre').value||'Action',
+    length:parseFloat(document.getElementById('inp-length').value)||110,
+    num_actors:parseInt(document.getElementById('inp-actors').value)||5,
+    rental_rate:parseFloat(document.getElementById('inp-rental-rate').value)||2.99,
+    replacement_cost:parseFloat(document.getElementById('inp-replace-cost').value)||19.99,
+    rental_duration:parseInt(document.getElementById('inp-rental-dur').value)||5,
+  };
+  document.getElementById('gauge-container').innerHTML='<div class="spinner" style="margin:2rem auto;"></div>';
+  try{
+    const res=await fetch(BASE_URL+'/api/predict',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    if(res.status===503){document.getElementById('model-warn').style.display='flex';document.getElementById('gauge-container').innerHTML='<div style="color:var(--text-dim);text-align:center;padding:1.5rem;">Model not available. Run train_model.py first.</div>';return;}
+    if(!res.ok)throw new Error('HTTP '+res.status);
+    const data=await res.json();
+    window._lastPredictionResult = { input: body, ...data }; // expose for AI
+    buildGauge(data.popularity_score,data.classification);
+    buildFeatImpChart(data.feature_importance);
+    buildRadarChart(data.radar_input,data.radar_avg_popular);
+    renderPopularFilms(data.top_popular_films||[]);
+  }catch(e){document.getElementById('gauge-container').innerHTML='<div class="alert alert-error">⚠ '+e.message+'</div>';console.error(e);}
+}
+
+async function loadDropdowns(){
+  document.getElementById('loading').style.display='flex';
+  try{
+    const [filmsRes, genresRes] = await Promise.all([
+      fetch(BASE_URL+'/api/films'),
+      fetch(BASE_URL+'/api/genres')
+    ]);
+
+    if (filmsRes.ok) {
+      _allFilms = await filmsRes.json();
+
+      // Populate genre filter in dropdown
+      const genres = [...new Set(_allFilms.map(f => f.genre_name).filter(Boolean))].sort();
+      const filterGenreEl = document.getElementById('filter-genre');
+      genres.forEach(g => filterGenreEl.appendChild(new Option(g, g)));
+
+      // Render initial options
+      filterFilmOptions();
+    }
+
+    if (genresRes.ok) {
+      const genres = await genresRes.json();
+      const sel = document.getElementById('inp-genre');
+      sel.innerHTML = '';
+      genres.forEach(g => sel.appendChild(new Option(g, g)));
+    }
+  }catch(e){
+    document.getElementById('error-msg').style.display='flex';
+    document.getElementById('error-text').textContent='Failed to load data: '+e.message;
+  }finally{
+    document.getElementById('loading').style.display='none';
+  }
+}
+loadDropdowns();
+
+window._changeChartType = function(type) {
+  // Radar chart is already shown automatically after prediction
+  if (type === 'radar') {
+    if (window._lastPredictionResult) {
+      return 'Radar chart is already visible on this page after running a prediction. Click "Predict Popularity" first if not visible.';
+    } else {
+      return 'Please run a prediction first (click "Predict Popularity") — the radar chart will appear automatically with results.';
+    }
+  }
+  return 'Chart type control is limited on this page. Radar chart appears automatically after prediction.';
+};
+
+</script>
+</body>
+</html>

@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>DVD Rental Dashboard — Home</title>
+<link rel="stylesheet" href="shared.css" />
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎬</text></svg>">
+<style>
+.home-grid { display:grid; grid-template-columns:1fr 1fr; gap:1.25rem; margin-top:1.25rem; }
+.full-width { grid-column:1/-1; }
+.status-bar { display:flex; align-items:center; gap:0.75rem; padding:0.6rem 1.1rem; background:var(--surface); border:1px solid var(--border); border-radius:8px; font-size:0.82rem; }
+.kpi-note { font-size:0.72rem; color:var(--text-dim); margin-top:0.2rem; font-style:italic; }
+
+/* AI mode toggle row */
+#ai-mode-row { display:flex; align-items:center; gap:0.5rem; padding:8px 16px; border-bottom:1px solid rgba(255,255,255,0.08); background:rgba(0,0,0,0.2); flex-wrap:wrap; }
+#ai-mode-row button { font-size:0.72rem; padding:4px 12px; border-radius:6px; cursor:pointer; transition:all 0.2s; }
+
+/* Modal open state — ai-popup.js uses classList.add('open') */
+#ai-modal.open { display:block; }
+
+/* Chat message types */
+.chat-msg { padding:10px 14px; border-radius:10px; font-size:0.82rem; line-height:1.5; max-width:88%; }
+.chat-msg.user   { align-self:flex-end; background:rgba(230,163,65,0.15); margin-left:auto; }
+.chat-msg.ai     { align-self:flex-start; background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.08); }
+.chat-msg.system { align-self:flex-start; background:rgba(46,204,113,0.1); color:#2ecc71; font-size:0.75rem; }
+#ai-modal { display:none; position:fixed; inset:0; z-index:10000; }
+</style>
+</head>
+<body>
+
+<div class="loading-overlay" id="loading">
+  <div class="spinner"></div>
+  <div class="loading-text">LOADING DASHBOARD…</div>
+</div>
+
+<nav class="navbar">
+  <a href="index.html" class="navbar-brand"><span class="logo-icon">🎬</span> DVD Rental</a>
+  <ul class="navbar-nav">
+    <li><a href="index.html" class="nav-link active">Home</a></li>
+    <li><a href="analysis.html" class="nav-link">Analysis</a></li>
+    <li><a href="inventory.html" class="nav-link">Inventory</a></li>
+    <li><a href="prediction.html" class="nav-link">Prediction</a></li>
+  </ul>
+</nav>
+
+<div class="main-container">
+  <div class="page-header" style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:1rem;">
+    <div>
+      <h1>DVD Rental Dashboard</h1>
+      <p>Business performance overview — real-time data from PostgreSQL database.</p>
+    </div>
+    <div style="display:flex;gap:0.75rem;align-items:center;flex-wrap:wrap;">
+      <div class="status-bar">
+        <span class="status-dot" id="status-dot" style="background:#888;box-shadow:none;"></span>
+        <span id="status-text">Connecting…</span>
+      </div>
+      <button class="btn btn-gold" onclick="loadAll()">↺ Refresh</button>
+    </div>
+  </div>
+
+  <div id="error-msg" style="display:none;" class="alert alert-error">
+    <span>⚠</span> <span id="error-text"></span>
+  </div>
+
+  <!-- KPI Grid -->
+  <div class="kpi-grid" id="kpi-grid">
+    <div class="kpi-card">
+      <span class="kpi-icon">🎭</span>
+      <div class="kpi-label">Total Genres</div>
+      <div class="kpi-value" id="kpi-genres">—</div>
+      <div class="kpi-note">All genres in catalog</div>
+    </div>
+    <div class="kpi-card">
+      <span class="kpi-icon">📀</span>
+      <div class="kpi-label">Top Genre Rentals</div>
+      <div class="kpi-value" id="kpi-rentals">—</div>
+      <div class="kpi-note" id="kpi-rentals-note">From top performing genre</div>
+    </div>
+    <div class="kpi-card">
+      <span class="kpi-icon">💰</span>
+      <div class="kpi-label">Top Genre Revenue</div>
+      <div class="kpi-value" id="kpi-revenue">—</div>
+      <div class="kpi-note" id="kpi-revenue-note">From top performing genre</div>
+    </div>
+    <div class="kpi-card">
+      <span class="kpi-icon">🏆</span>
+      <div class="kpi-label">Top Performing Genre</div>
+      <div class="kpi-value" id="kpi-top-genre" style="font-size:1.2rem;">—</div>
+      <div class="kpi-note" id="kpi-top-pct"></div>
+    </div>
+  </div>
+
+  <!-- Main Grid -->
+  <div class="home-grid">
+    <div class="card">
+      <div class="card-title">Revenue by Genre</div>
+      <div class="chart-wrapper" style="height:280px;"><canvas id="revenueChart"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Rentals by Genre</div>
+      <div class="chart-wrapper" style="height:280px;"><canvas id="rentalsChart"></canvas></div>
+    </div>
+
+    <!-- Stock Alert -->
+    <div class="card full-width">
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:0.5rem;margin-bottom:1rem;">
+        <div class="card-title" style="margin-bottom:0;">⚠ Stock Alerts</div>
+        <span id="alert-count" style="font-family:'JetBrains Mono',monospace;font-size:0.82rem;color:var(--text-dim);"></span>
+      </div>
+      <div id="alert-none" class="alert alert-success" style="display:none;">✔ All stock levels are healthy.</div>
+      <div class="table-wrapper" id="alert-table-wrapper" style="display:none;">
+        <table id="alert-table">
+          <thead>
+            <tr>
+              <th>Film Title</th>
+              <th>Current Stock</th>
+              <th>Days to Empty</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody id="alert-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- AI POPUP -->
+<button id="ai-fab" title="AI Assistant">🤖</button>
+<div id="ai-modal">
+  <div id="ai-modal-backdrop"></div>
+  <div id="ai-modal-box">
+    <div id="ai-modal-header">
+      <span>🤖</span><h3>DVD Rental AI Assistant</h3><button id="ai-modal-close">✕</button>
+    </div>
+    <div id="ai-chat-messages"></div>
+    <div id="ai-chat-input-row">
+      <textarea id="ai-chat-input" rows="1" placeholder="Ask me anything…"></textarea>
+      <button id="ai-send-btn">➤</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+<script src="ai-popup.js"></script>
+<script>
+const COLORS = ['#FF6B35','#F7C35C','#E84A2D','#FF8C42','#FCE079','#D63A1A','#E6A341','#B14A36','#8C0902','#FECE79'];
+Chart.defaults.color = 'rgba(245,230,200,0.7)';
+Chart.defaults.borderColor = 'rgba(230,163,65,0.12)';
+
+let revenueChart = null, rentalsChart = null;
+let rawGenreData = [];
+let currentChartType = LS.get('chartType', {}).home || 'bar';
+
+function fmt(n)  { return new Intl.NumberFormat('en-US',{style:'currency',currency:'USD',minimumFractionDigits:0,maximumFractionDigits:0}).format(n); }
+function fmtN(n) { return new Intl.NumberFormat('en-US').format(n); }
+
+function resolveType(t) {
+  if (t === 'donut') return 'doughnut';
+  return t || 'bar';
+}
+
+function buildCharts(data) {
+  const labels   = data.map(g => g.genre_name);
+  const revenues = data.map(g => g.total_revenue);
+  const rentals  = data.map(g => g.total_rental);
+  const type     = resolveType(currentChartType);
+  const isPie    = type === 'pie' || type === 'doughnut';
+
+  const tooltipBase = { backgroundColor:'#1e0200', borderColor:'rgba(230,163,65,0.3)', borderWidth:1, titleColor:'#E6A341', bodyColor:'#f5e6c8' };
+  const scalesBase  = isPie ? {} : {
+    scales: {
+      x: { grid:{color:'rgba(230,163,65,0.06)'}, ticks:{font:{family:'JetBrains Mono,monospace',size:10},maxRotation:30} },
+      y: { grid:{color:'rgba(230,163,65,0.06)'}, ticks:{font:{family:'JetBrains Mono,monospace',size:10}} }
+    }
+  };
+
+  const ctxR = document.getElementById('revenueChart').getContext('2d');
+  if (revenueChart) revenueChart.destroy();
+  revenueChart = new Chart(ctxR, {
+    type,
+    data: { labels, datasets:[{ label:'Revenue', data:revenues, backgroundColor:COLORS, borderWidth:0, borderRadius: isPie?0:4 }] },
+    options: { responsive:true, maintainAspectRatio:false, plugins:{ legend:{display:isPie, labels:{color:'#f5e6c8',font:{size:10}}}, tooltip:{...tooltipBase, callbacks:{label:ctx=>fmt(ctx.raw)}} }, ...scalesBase }
+  });
+
+  const ctxRe = document.getElementById('rentalsChart').getContext('2d');
+  if (rentalsChart) rentalsChart.destroy();
+  rentalsChart = new Chart(ctxRe, {
+    type,
+    data: { labels, datasets:[{ label:'Rentals', data:rentals, backgroundColor:[...COLORS].reverse(), borderWidth:0, borderRadius: isPie?0:4 }] },
+    options: { responsive:true, maintainAspectRatio:false, plugins:{ legend:{display:isPie, labels:{color:'#f5e6c8',font:{size:10}}}, tooltip:{...tooltipBase, callbacks:{label:ctx=>fmtN(ctx.raw)+' rentals'}} }, ...scalesBase }
+  });
+}
+
+function buildAlerts(alerts) {
+  if (!alerts || !alerts.length) {
+    document.getElementById('alert-none').style.display = 'flex';
+    document.getElementById('alert-table-wrapper').style.display = 'none';
+    return;
+  }
+  document.getElementById('alert-none').style.display = 'none';
+  document.getElementById('alert-table-wrapper').style.display = 'block';
+  document.getElementById('alert-count').textContent = alerts.length + ' film(s) need attention';
+  const tbody = document.getElementById('alert-tbody');
+  tbody.innerHTML = '';
+  alerts.forEach(a => {
+    const tr = document.createElement('tr');
+    const bc = a.stock_status === 'CRITICAL' ? 'badge-critical' : 'badge-warning';
+    tr.innerHTML = `
+      <td>${a.title}</td>
+      <td style="font-family:'JetBrains Mono',monospace;">${a.current_stock}</td>
+      <td style="font-family:'JetBrains Mono',monospace;">${a.days_to_empty!=null?a.days_to_empty.toFixed(1)+' days':'—'}</td>
+      <td><span class="badge ${bc}">${a.stock_status}</span></td>`;
+    tbody.appendChild(tr);
+  });
+}
+
+async function loadAll() {
+  document.getElementById('loading').style.display = 'flex';
+  document.getElementById('error-msg').style.display = 'none';
+  try {
+    const res = await fetch(BASE_URL + '/api/home');
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const data = await res.json();
+
+    // KPI — rentals & revenue are from TOP genre only
+    document.getElementById('kpi-genres').textContent   = fmtN(data.kpi.total_genres);
+    document.getElementById('kpi-rentals').textContent  = fmtN(data.kpi.total_rentals);
+    document.getElementById('kpi-revenue').textContent  = fmt(data.kpi.total_revenue);
+    document.getElementById('kpi-top-genre').textContent = data.kpi.top_genre;
+    document.getElementById('kpi-rentals-note').textContent = 'From ' + data.kpi.top_genre + ' genre';
+    document.getElementById('kpi-revenue-note').textContent = 'From ' + data.kpi.top_genre + ' genre';
+    document.getElementById('kpi-top-pct').textContent  = data.kpi.top_genre_revenue_pct.toFixed(1) + '% of total revenue';
+
+    // Status
+    document.getElementById('status-dot').style.cssText = 'background:#2ecc71;box-shadow:0 0 8px #2ecc71;display:inline-block;width:9px;height:9px;border-radius:50%;flex-shrink:0;';
+    document.getElementById('status-text').textContent  = 'System Online — Database Connected';
+
+    // Charts use all_genres array
+    rawGenreData = data.all_genres || [];
+    buildCharts(rawGenreData);
+    buildAlerts(data.stock_alerts);
+  } catch(e) {
+    document.getElementById('status-dot').style.background = '#e74c3c';
+    document.getElementById('status-text').textContent = 'Database Offline';
+    document.getElementById('error-msg').style.display = 'flex';
+    document.getElementById('error-text').textContent = 'Cannot connect to backend: ' + e.message + '. Make sure FastAPI is running at ' + BASE_URL;
+  } finally {
+    document.getElementById('loading').style.display = 'none';
+  }
+}
+
+// AI popup page-specific handlers
+window._changeChartType = function(type) {
+  currentChartType = type;
+  const ct = LS.get('chartType', {}); ct.home = type; LS.set('chartType', ct);
+  if (rawGenreData.length) buildCharts(rawGenreData);
+  return 'Chart type changed to "' + type + '".';
+};
+window._filterData = function(category, value) {
+  if (category === 'genre') {
+    const filtered = rawGenreData.filter(g => g.genre_name.toLowerCase().includes(value.toLowerCase()));
+    buildCharts(filtered.length ? filtered : rawGenreData);
+    return filtered.length ? 'Genre filter "' + value + '" applied.' : 'Genre "' + value + '" not found.';
+  }
+  return 'Filter category "' + category + '" not available on this page.';
+};
+window._sortData = function(column, order) {
+  const colMap = { revenue:'total_revenue', rentals:'total_rental', name:'genre_name' };
+  const col = colMap[column] || 'total_revenue';
+  const sorted = [...rawGenreData].sort((a,b) => order==='asc' ? (a[col]>b[col]?1:-1) : (a[col]<b[col]?1:-1));
+  buildCharts(sorted);
+  return 'Data sorted by "' + column + '" (' + order + ').';
+};
+
+loadAll();
+</script>
+</body>
+</html>

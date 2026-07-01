@@ -1,0 +1,111 @@
+<div class="page-header">
+  <h1>Inventory Forecast</h1>
+  <p>SMA-based days-to-empty prediction · Critical alerts · Velocity analysis · Live restock</p>
+</div>
+
+<div id="inventory-alerts"></div>
+
+<div class="kpi-grid" id="inventory-kpis"></div>
+
+<div class="tabs">
+  <button class="tab-btn active" data-tab="inv-overview">📊 Stock Overview</button>
+  <button class="tab-btn" data-tab="inv-sma">📈 SMA Forecast</button>
+  <button class="tab-btn" data-tab="inv-velocity">🏎️ Velocity</button>
+  <button class="tab-btn" data-tab="inv-restock">📦 Restock</button>
+</div>
+
+<!-- Overview -->
+<div class="tab-panel active" id="tab-inv-overview">
+  <div style="display:flex;gap:1rem;margin-bottom:1rem;align-items:center">
+    <select class="form-control" id="inv-filter" style="max-width:200px">
+      <option value="ALL">All Status</option>
+      <option value="CRITICAL">Critical only</option>
+      <option value="WARNING">Warning only</option>
+      <option value="OK">OK only</option>
+    </select>
+  </div>
+  <div class="chart-card">
+    <div class="chart-card-header">
+      <div>
+        <div class="chart-title">Days to Empty — Top 25 Most Urgent</div>
+        <div class="chart-subtitle">🔴 ≤3 days · 🟡 ≤7 days · 🔵 Longer horizon</div>
+      </div>
+    </div>
+    <div class="chart-wrap"><canvas id="stock_chart" height="400"></canvas></div>
+  </div>
+  <div class="chart-card" style="margin-top:0">
+    <details>
+      <summary style="cursor:pointer;font-size:.84rem;font-weight:500;padding:.5rem 0">📋 Full Inventory Table</summary>
+      <div id="inventory-table" style="margin-top:1rem"></div>
+    </details>
+  </div>
+</div>
+
+<!-- SMA Forecast -->
+<div class="tab-panel" id="tab-inv-sma">
+  <div class="form-card" style="margin-bottom:1.25rem">
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Select Film</label>
+        <select class="form-control" id="sma-film-select"></select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">SMA Window (weeks)</label>
+        <input type="range" id="sma-window" min="2" max="12" value="4" style="margin-top:.6rem"/>
+        <span id="sma-window-label" style="font-size:.8rem;color:var(--clr-muted)">4 weeks</span>
+      </div>
+      <div class="form-group" style="justify-content:flex-end">
+        <button class="btn btn-primary" id="btn-load-sma" style="align-self:flex-end">Load Forecast</button>
+      </div>
+    </div>
+  </div>
+  <div class="chart-card">
+    <div class="chart-card-header">
+      <div>
+        <div class="chart-title">SMA Demand Forecast</div>
+        <div class="chart-subtitle">Actual rentals · Moving average · 4-week forecast</div>
+      </div>
+    </div>
+    <div class="chart-wrap"><canvas id="sma_chart" height="280"></canvas></div>
+  </div>
+  <div class="kpi-grid" id="sma-kpis" style="margin-top:0"></div>
+</div>
+
+<!-- Velocity -->
+<div class="tab-panel" id="tab-inv-velocity">
+  <div class="chart-card">
+    <div class="chart-card-header">
+      <div>
+        <div class="chart-title">Rental Velocity — Top 20 Fastest Moving</div>
+        <div class="chart-subtitle">Rentals per day based on historical data</div>
+      </div>
+    </div>
+    <div class="chart-wrap"><canvas id="velocity_chart" height="400"></canvas></div>
+  </div>
+</div>
+
+<!-- Restock -->
+<div class="tab-panel" id="tab-inv-restock">
+  <div class="form-card">
+    <div class="section-label" style="margin-bottom:1rem">Add / Restock Inventory</div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Film</label>
+        <select class="form-control" id="restock-film"></select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Store</label>
+        <select class="form-control" id="restock-store">
+          <option value="1">Store 1</option>
+          <option value="2">Store 2</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Copies to Add</label>
+        <input type="number" class="form-control" id="restock-qty" value="5" min="1" max="50"/>
+      </div>
+    </div>
+    <button class="btn btn-primary" id="btn-restock">📦 Add Stock &amp; Refresh</button>
+    <div id="restock-msg" style="margin-top:.85rem"></div>
+  </div>
+</div>

@@ -1,0 +1,119 @@
+<div class="page-header">
+  <h1>Movie Performance</h1>
+  <p>Genre · Rating · Revenue · Rental behaviour · Market segmentation</p>
+</div>
+
+<!-- Tabs -->
+<div class="tabs">
+  <button class="tab-btn active" data-tab="overview">📊 Overview</button>
+  <button class="tab-btn" data-tab="rating">⭐ Rating Analysis</button>
+  <button class="tab-btn" data-tab="combined">🔀 Genre × Rating</button>
+  <button class="tab-btn" data-tab="rental">➕ Add Rental</button>
+</div>
+
+<!-- Overview tab -->
+<div class="tab-panel active" id="tab-overview">
+  <div id="genre-kpis" class="kpi-grid"></div>
+  <div class="chart-grid-2">
+    <div class="chart-card">
+      <div class="chart-card-header">
+        <div>
+          <div class="chart-title">Revenue by Genre</div>
+          <div class="chart-subtitle">Total rental revenue per category</div>
+        </div>
+      </div>
+      <div class="chart-wrap"><canvas id="revenue_chart" height="260"></canvas></div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-card-header">
+        <div>
+          <div class="chart-title">Rental Count by Genre</div>
+          <div class="chart-subtitle">Number of completed rentals</div>
+        </div>
+      </div>
+      <div class="chart-wrap"><canvas id="rental_chart" height="260"></canvas></div>
+    </div>
+  </div>
+  <div class="chart-card">
+    <div class="chart-card-header">
+      <div>
+        <div class="chart-title">Revenue Share (%)</div>
+        <div class="chart-subtitle">Each genre's contribution to total revenue</div>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:1.5rem;align-items:center">
+      <canvas id="share_chart" height="240"></canvas>
+      <div id="best-film-table"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Rating tab -->
+<div class="tab-panel" id="tab-rating">
+  <div id="rating-kpis" class="kpi-grid"></div>
+  <div class="chart-grid-2">
+    <div class="chart-card">
+      <div class="chart-card-header">
+        <div>
+          <div class="chart-title">Revenue by Rating</div>
+          <div class="chart-subtitle">G · PG · PG-13 · R · NC-17</div>
+        </div>
+      </div>
+      <div class="chart-wrap"><canvas id="rating_revenue" height="240"></canvas></div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-card-header">
+        <div>
+          <div class="chart-title">Rental Share by Rating (%)</div>
+          <div class="chart-subtitle">Proportion of total rentals per rating</div>
+        </div>
+      </div>
+      <div class="chart-wrap"><canvas id="rating_share" height="240"></canvas></div>
+    </div>
+  </div>
+  <div class="chart-card">
+    <div class="chart-card-header">
+      <div>
+        <div class="chart-title">Avg Rentals per Film by Rating</div>
+        <div class="chart-subtitle">Rental frequency normalised by catalog size</div>
+      </div>
+    </div>
+    <div class="chart-wrap"><canvas id="rating_rental" height="200"></canvas></div>
+  </div>
+</div>
+
+<!-- Combined genre × rating tab -->
+<div class="tab-panel" id="tab-combined">
+  <div class="chart-card">
+    <div class="chart-card-header">
+      <div>
+        <div class="chart-title">Genre × Rating — Rental Distribution</div>
+        <div class="chart-subtitle">Grouped bars: each rating within each genre</div>
+      </div>
+    </div>
+    <div class="chart-wrap"><canvas id="genre_rating_chart" height="320"></canvas></div>
+  </div>
+</div>
+
+<!-- Add Rental tab -->
+<div class="tab-panel" id="tab-rental">
+  <div class="form-card">
+    <div class="section-label">Add New Rental Transaction</div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Film</label>
+        <select class="form-control" id="rental-film"></select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Customer</label>
+        <select class="form-control" id="rental-customer"></select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Amount ($)</label>
+        <input type="number" class="form-control" id="rental-amount" value="2.99" min="0" step="0.01"/>
+      </div>
+    </div>
+    <button class="btn btn-primary" id="btn-add-rental">Submit Transaction</button>
+    <div id="rental-msg" style="margin-top:.85rem"></div>
+  </div>
+</div>

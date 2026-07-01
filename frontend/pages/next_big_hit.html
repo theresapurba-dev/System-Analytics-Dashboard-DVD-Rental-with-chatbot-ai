@@ -1,0 +1,106 @@
+<div class="page-header">
+  <h1>Next Big Hit Predictor</h1>
+  <p>Random Forest classifier · Popularity score · Feature importance · Prediction explanation</p>
+</div>
+
+<div class="chart-grid-2" style="align-items:start">
+
+  <!-- Input form -->
+  <div class="form-card">
+    <div class="section-label" style="margin-bottom:1rem">Film Attributes</div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Genre</label>
+        <select class="form-control" id="nbh-genre"></select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Rating</label>
+        <select class="form-control" id="nbh-rating">
+          <option value="G">G</option>
+          <option value="PG">PG</option>
+          <option value="PG-13" selected>PG-13</option>
+          <option value="R">R</option>
+          <option value="NC-17">NC-17</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Length (min)</label>
+        <input type="number" class="form-control" id="nbh-length" value="100" min="30" max="300"/>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Rental Rate ($)</label>
+        <input type="number" class="form-control" id="nbh-rate" value="2.99" min="0.99" step="0.01"/>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Replacement Cost ($)</label>
+        <input type="number" class="form-control" id="nbh-cost" value="19.99" min="5" step="0.01"/>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Rental Duration (days)</label>
+        <input type="number" class="form-control" id="nbh-duration" value="3" min="1" max="7"/>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Actors</label>
+        <input type="number" class="form-control" id="nbh-actors" value="5" min="1" max="50"/>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group" style="flex-direction:row;align-items:center;gap:.5rem">
+        <input type="checkbox" id="nbh-trailers"/> <label class="form-label" for="nbh-trailers" style="margin:0;text-transform:none">Trailers</label>
+      </div>
+      <div class="form-group" style="flex-direction:row;align-items:center;gap:.5rem">
+        <input type="checkbox" id="nbh-commentaries"/> <label class="form-label" for="nbh-commentaries" style="margin:0;text-transform:none">Commentaries</label>
+      </div>
+      <div class="form-group" style="flex-direction:row;align-items:center;gap:.5rem">
+        <input type="checkbox" id="nbh-deleted"/> <label class="form-label" for="nbh-deleted" style="margin:0;text-transform:none">Deleted Scenes</label>
+      </div>
+      <div class="form-group" style="flex-direction:row;align-items:center;gap:.5rem">
+        <input type="checkbox" id="nbh-behind"/> <label class="form-label" for="nbh-behind" style="margin:0;text-transform:none">Behind the Scenes</label>
+      </div>
+    </div>
+    <button class="btn btn-primary" id="btn-predict" style="margin-top:.5rem">🔮 Predict Popularity</button>
+  </div>
+
+  <!-- Score output -->
+  <div>
+    <div class="chart-card" id="score-card" style="text-align:center">
+      <div class="section-label" style="margin-bottom:1.25rem">Popularity Score</div>
+      <div class="gauge-wrap">
+        <div class="gauge-score" id="nbh-score" style="color:var(--clr-gold)">—</div>
+        <div style="font-size:.8rem;color:var(--clr-muted)">out of 100</div>
+        <div class="gauge-label" id="nbh-label" style="margin-top:.5rem;color:var(--clr-muted)">Run prediction first</div>
+      </div>
+      <canvas id="popularity_gauge" height="80" style="margin-top:.5rem"></canvas>
+    </div>
+  </div>
+
+</div>
+
+<!-- Feature importance -->
+<div class="chart-card" id="feature-card" style="display:none">
+  <div class="chart-card-header">
+    <div>
+      <div class="chart-title">Feature Importance</div>
+      <div class="chart-subtitle">Which attributes most influence the prediction</div>
+    </div>
+  </div>
+  <div class="chart-wrap"><canvas id="feature_chart" height="220"></canvas></div>
+</div>
+
+<!-- Quick lookup from DB -->
+<div class="form-card">
+  <div class="section-label" style="margin-bottom:1rem">Quick Lookup — Predict from Existing Film</div>
+  <div class="form-row">
+    <div class="form-group">
+      <label class="form-label">Select Film</label>
+      <select class="form-control" id="nbh-film-select"></select>
+    </div>
+    <div class="form-group" style="justify-content:flex-end">
+      <button class="btn btn-gold" id="btn-predict-film" style="align-self:flex-end">Predict Selected Film</button>
+    </div>
+  </div>
+</div>

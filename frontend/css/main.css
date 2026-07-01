@@ -1,0 +1,294 @@
+/* ================================================================
+   main.css — DVD Fix BI Dashboard
+   Palette: #210100 · #E6A341 · #FECE79 · #B14A36 · #8C0902
+   ================================================================ */
+
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=Playfair+Display:wght@600&display=swap');
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --clr-deep:    #210100;
+  --clr-gold:    #E6A341;
+  --clr-cream:   #FECE79;
+  --clr-rust:    #B14A36;
+  --clr-crimson: #8C0902;
+
+  --clr-bg:      #F5F1EA;
+  --clr-surface: #FFFFFF;
+  --clr-border:  rgba(33,1,0,0.10);
+  --clr-muted:   #7A6E68;
+  --clr-text:    #1C0F0E;
+
+  --sidebar-w:   240px;
+  --radius-sm:   8px;
+  --radius-md:   12px;
+  --radius-lg:   18px;
+
+  --shadow-card: 0 2px 16px rgba(33,1,0,0.07);
+  --shadow-lg:   0 8px 32px rgba(33,1,0,0.12);
+
+  --font-body:   'DM Sans',    sans-serif;
+  --font-display:'Playfair Display', serif;
+
+  --transition:  0.18s ease;
+}
+
+html, body {
+  height: 100%;
+  font-family: var(--font-body);
+  background: var(--clr-bg);
+  color: var(--clr-text);
+  font-size: 15px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ── Layout shell ─────────────────────────────────────────── */
+#app {
+  display: flex;
+  min-height: 100vh;
+}
+
+#sidebar {
+  width: var(--sidebar-w);
+  min-height: 100vh;
+  background: var(--clr-deep);
+  display: flex;
+  flex-direction: column;
+  position: fixed;
+  top: 0; left: 0;
+  z-index: 100;
+  overflow-y: auto;
+}
+
+#main {
+  margin-left: var(--sidebar-w);
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+#page-content {
+  flex: 1;
+  padding: 2rem 2.5rem;
+  max-width: 1400px;
+  width: 100%;
+  margin: 0 auto;
+}
+
+/* ── Sidebar ──────────────────────────────────────────────── */
+.sidebar-brand {
+  padding: 1.75rem 1.5rem 1rem;
+  border-bottom: 1px solid rgba(255,255,255,0.07);
+}
+
+.sidebar-brand .brand-icon {
+  font-size: 1.75rem;
+  line-height: 1;
+  margin-bottom: .4rem;
+}
+
+.sidebar-brand .brand-title {
+  font-family: var(--font-display);
+  font-size: 1.05rem;
+  color: var(--clr-cream);
+  letter-spacing: .01em;
+  line-height: 1.2;
+}
+
+.sidebar-brand .brand-sub {
+  font-size: .72rem;
+  color: rgba(254,206,121,0.55);
+  margin-top: .2rem;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+
+.sidebar-nav {
+  padding: 1rem 0;
+  flex: 1;
+}
+
+.nav-section-label {
+  font-size: .65rem;
+  font-weight: 600;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: rgba(254,206,121,0.4);
+  padding: .75rem 1.5rem .35rem;
+}
+
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: .75rem;
+  padding: .62rem 1.5rem;
+  color: rgba(254,206,121,0.65);
+  font-size: .875rem;
+  font-weight: 400;
+  cursor: pointer;
+  border-left: 3px solid transparent;
+  transition: var(--transition);
+  text-decoration: none;
+  user-select: none;
+}
+
+.nav-item:hover {
+  color: var(--clr-cream);
+  background: rgba(254,206,121,0.06);
+  border-left-color: rgba(254,206,121,0.3);
+}
+
+.nav-item.active {
+  color: var(--clr-cream);
+  background: rgba(230,163,65,0.12);
+  border-left-color: var(--clr-gold);
+  font-weight: 500;
+}
+
+.nav-item .nav-icon {
+  font-size: 1.1rem;
+  width: 20px;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.sidebar-footer {
+  padding: 1rem 1.5rem 1.5rem;
+  border-top: 1px solid rgba(255,255,255,0.07);
+}
+
+.db-status {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  font-size: .75rem;
+  color: rgba(254,206,121,0.5);
+}
+
+.db-status .dot {
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  background: #6ee7b7;
+  flex-shrink: 0;
+}
+
+.db-status.error .dot { background: #fca5a5; }
+
+/* ── Top bar ─────────────────────────────────────────────── */
+#topbar {
+  background: var(--clr-surface);
+  border-bottom: 1px solid var(--clr-border);
+  padding: .9rem 2.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: sticky;
+  top: 0;
+  z-index: 50;
+}
+
+.topbar-title {
+  font-size: 1.05rem;
+  font-weight: 500;
+  color: var(--clr-text);
+}
+
+.topbar-actions {
+  display: flex;
+  gap: .75rem;
+  align-items: center;
+}
+
+.btn-refresh {
+  display: flex;
+  align-items: center;
+  gap: .4rem;
+  padding: .45rem .9rem;
+  background: transparent;
+  border: 1px solid var(--clr-border);
+  border-radius: var(--radius-sm);
+  font-size: .8rem;
+  font-family: var(--font-body);
+  color: var(--clr-muted);
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.btn-refresh:hover {
+  border-color: var(--clr-gold);
+  color: var(--clr-text);
+}
+
+/* ── Page header ─────────────────────────────────────────── */
+.page-header {
+  margin-bottom: 1.75rem;
+}
+
+.page-header h1 {
+  font-family: var(--font-display);
+  font-size: 1.6rem;
+  font-weight: 600;
+  color: var(--clr-deep);
+  margin-bottom: .25rem;
+}
+
+.page-header p {
+  font-size: .85rem;
+  color: var(--clr-muted);
+}
+
+/* ── Section label ───────────────────────────────────────── */
+.section-label {
+  font-size: .68rem;
+  font-weight: 600;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--clr-gold);
+  margin-bottom: .75rem;
+}
+
+/* ── Loading / error states ──────────────────────────────── */
+.loading-state {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: .75rem;
+  padding: 3rem;
+  color: var(--clr-muted);
+  font-size: .9rem;
+}
+
+.spinner {
+  width: 20px; height: 20px;
+  border: 2px solid var(--clr-border);
+  border-top-color: var(--clr-gold);
+  border-radius: 50%;
+  animation: spin .7s linear infinite;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.error-state {
+  background: #fff5f5;
+  border: 1px solid #fecaca;
+  border-radius: var(--radius-md);
+  padding: 1rem 1.25rem;
+  color: #b91c1c;
+  font-size: .85rem;
+}
+
+/* ── Scrollbar ───────────────────────────────────────────── */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(33,1,0,0.15); border-radius: 3px; }
+
+/* ── Responsive ──────────────────────────────────────────── */
+@media (max-width: 900px) {
+  :root { --sidebar-w: 0px; }
+  #sidebar { display: none; }
+  #main { margin-left: 0; }
+  #page-content { padding: 1.25rem; }
+}

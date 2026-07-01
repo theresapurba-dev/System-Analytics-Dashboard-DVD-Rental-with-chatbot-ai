@@ -1,0 +1,601 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>DVD Rental — Genre × Rating Analysis</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎬</text></svg>">
+<link rel="stylesheet" href="shared.css"/>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+
+<style>
+.charts-grid { display:grid; grid-template-columns:1fr 1fr; gap:1.25rem; margin-bottom:1.25rem; }
+.chart-full  { grid-column:1/-1; }
+.filter-row  { display:flex; flex-wrap:wrap; gap:0.5rem; margin-bottom:1.25rem; align-items:center; }
+.chip { display:inline-flex; align-items:center; gap:0.3rem; padding:0.25rem 0.8rem; border-radius:20px; background:rgba(230,163,65,0.1); border:1px solid var(--border); color:var(--gold); font-size:0.78rem; font-family:'JetBrains Mono',monospace; cursor:pointer; transition:all 0.2s; }
+.chip:hover,.chip.active { background:rgba(230,163,65,0.25); border-color:var(--gold); color:var(--gold-lt); }
+.insight-box { background:var(--surface2); border:1px solid var(--border); border-radius:8px; padding:1rem 1.25rem; font-size:0.9rem; color:var(--text); line-height:1.6; margin-bottom:1.25rem; }
+.insight-box strong { color:var(--gold); }
+.sort-arrow { font-size:0.7rem; margin-left:0.3rem; opacity:0.4; }
+.sort-arrow.active { opacity:1; color:var(--gold-lt); }
+.summary-strip { display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:0.75rem; margin-bottom:1.25rem; }
+.summary-card  { background:var(--surface2); border:1px solid var(--border); border-radius:8px; padding:0.75rem 1rem; text-align:center; }
+.summary-val   { font-family:'JetBrains Mono',monospace; font-size:1.4rem; color:var(--gold-lt); }
+.summary-label { font-family:'Cinzel',serif; font-size:0.65rem; letter-spacing:0.1em; color:var(--text-dim); text-transform:uppercase; margin-top:0.2rem; }
+@media(max-width:900px){ .charts-grid{grid-template-columns:1fr;} }
+</style>
+</head>
+<body>
+
+<div class="loading-overlay" id="loading">
+  <div class="spinner"></div>
+  <div class="loading-text">LOADING ANALYSIS…</div>
+</div>
+
+<nav class="navbar">
+  <a href="index.html" class="navbar-brand"><span class="logo-icon">🎬</span> DVD Rental</a>
+  <ul class="navbar-nav">
+    <li><a href="index.html" class="nav-link">Home</a></li>
+    <li><a href="analysis.html" class="nav-link active">Analysis</a></li>
+    <li><a href="inventory.html" class="nav-link">Inventory</a></li>
+    <li><a href="prediction.html" class="nav-link">Prediction</a></li>
+  </ul>
+</nav>
+
+<div class="main-container">
+  <div class="page-header" style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:1rem;">
+    <div>
+      <h1>Genre × Rating Analysis</h1>
+      <p>Cross-analysis of rental performance across genres and content ratings.</p>
+    </div>
+    <button class="btn btn-gold" onclick="loadAll()">↺ Refresh</button>
+  </div>
+
+  <div id="error-msg" style="display:none;" class="alert alert-error"><span>⚠</span> <span id="error-text"></span></div>
+
+  <!-- Auto insight strip -->
+  <div class="insight-box" id="insight-strip">Loading insight…</div>
+
+  <!-- Summary numbers -->
+  <div class="summary-strip" id="summary-strip"></div>
+
+  <!-- Genre filter chips -->
+  <div class="filter-row" id="genre-chips"></div>
+
+  <!-- ① 100% Stacked Bar Chart — Rating Composition: Family-Friendly vs Mature Audience -->
+  <div class="card chart-full" style="margin-bottom:1.25rem;">
+    <div class="card-title">① Rating Composition: Family-Friendly vs Mature Audience</div>
+    <p style="font-size:0.82rem;color:var(--text-dim);margin-bottom:0.75rem;">Compares the percentage share of Family-Friendly (G & PG) rentals vs Mature Audience (PG-13, R, NC-17) rentals. Sorted by Family-Friendly share descending.</p>
+    <div style="height:380px;"><canvas id="chart-rating-stacked"></canvas></div>
+  </div>
+
+  <!-- ② Top Genres by Content Rating -->
+  <div class="card chart-full" style="margin-bottom:1.25rem;">
+    <div class="card-title">② Top Genres by Content Rating</div>
+    <p style="font-size:0.82rem;color:var(--text-dim);margin-bottom:0.75rem;">Top 5 highest-rented genres for each film rating category. Shows which genres are most popular per rating tier.</p>
+    <div id="chart-heatmap" class="small-charts-grid" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(190px, 1fr)); gap:1rem; width:100%; min-height:220px;"></div>
+  </div>
+
+  <!-- ③ + ④ side by side -->
+  <div class="charts-grid">
+    <!-- ③ Bar Chart Genre Popularity -->
+    <div class="card">
+      <div class="card-title">③ Genre Popularity</div>
+      <p style="font-size:0.82rem;color:var(--text-dim);margin-bottom:0.75rem;">Total rental count per genre. Shows which genres are rented most frequently.</p>
+      <div style="height:280px;"><canvas id="chart-genre-popularity"></canvas></div>
+    </div>
+    <!-- ④ Donut Chart Rating Distribution -->
+    <div class="card">
+      <div class="card-title">④ Overall Rating Distribution</div>
+      <p style="font-size:0.82rem;color:var(--text-dim);margin-bottom:0.75rem;">The share of total rentals belonging to each film content rating.</p>
+      <div style="height:280px;"><canvas id="chart-rating-overall"></canvas></div>
+    </div>
+  </div>
+
+  <!-- Data table -->
+  <div class="card" style="margin-bottom:1.25rem;">
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:1rem;margin-bottom:1rem;">
+      <div class="card-title" style="margin:0;">Cross Analysis Data</div>
+      <input type="text" class="search-input" id="table-search" placeholder="🔍 Search genre / rating…" oninput="filterTable()">
+    </div>
+    <div class="table-wrapper">
+      <table>
+        <thead><tr>
+          <th onclick="sortTable('genre_name')">Genre <span class="sort-arrow" id="sa-genre">↕</span></th>
+          <th onclick="sortTable('rating')">Rating <span class="sort-arrow" id="sa-rating">↕</span></th>
+          <th onclick="sortTable('rentals')">Rentals <span class="sort-arrow" id="sa-rentals">↕</span></th>
+          <th onclick="sortTable('revenue')">Revenue <span class="sort-arrow" id="sa-revenue">↕</span></th>
+          <th onclick="sortTable('avg_revenue')">Avg Rev/Rental <span class="sort-arrow" id="sa-avg">↕</span></th>
+        </tr></thead>
+        <tbody id="cross-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Top film per combo -->
+  <div class="card">
+    <div class="card-title">Top Film per Genre × Rating</div>
+    <div class="table-wrapper">
+      <table>
+        <thead><tr><th>Genre</th><th>Rating</th><th>Best Film</th><th>Rentals</th><th>Revenue</th></tr></thead>
+        <tbody id="topfilms-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- AI POPUP -->
+<button id="ai-fab" title="AI Assistant">🤖</button>
+<div id="ai-modal">
+  <div id="ai-modal-backdrop"></div>
+  <div id="ai-modal-box">
+    <div id="ai-modal-header"><span>🤖</span><h3>DVD Rental AI Assistant</h3><button id="ai-modal-close">✕</button></div>
+    <div id="ai-chat-messages"></div>
+    <div id="ai-chat-input-row">
+      <textarea id="ai-chat-input" rows="1" placeholder="Ask me anything…"></textarea>
+      <button id="ai-send-btn">➤</button>
+    </div>
+  </div>
+</div>
+
+<script src="ai-popup.js"></script>
+<script>
+// BASE_URL defined in ai-popup.js
+const RATINGS = ['G','PG','PG-13','R','NC-17'];
+const COLORS  = ['#FF6B35','#F7C35C','#E84A2D','#FF8C42','#FCE079','#D63A1A'];
+const RATING_COLORS = { G:'#FCE079', PG:'#F7C35C', 'PG-13':'#FF8C42', R:'#E84A2D', 'NC-17':'#D63A1A' };
+
+Chart.defaults.color = window.getThemeTextColor ? window.getThemeTextColor() : 'rgba(245,230,200,0.7)';
+Chart.defaults.borderColor = window.getThemeBorderColor ? window.getThemeBorderColor() : 'rgba(230,163,65,0.12)';
+
+let crossData = [], tableData = [];
+let sortCol = null, sortDir = 'desc';
+let activeGenre = null;
+let charts = {};
+
+function fmt(n)  { return '$' + Number(n).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}); }
+function fmtN(n) { return Number(n).toLocaleString('en-US'); }
+
+// ── Summary strip ──────────────────────────────────
+function buildSummary(data) {
+  const totalRentals = data.reduce((s,d)=>s+d.rentals,0);
+  const totalRevenue = data.reduce((s,d)=>s+d.revenue,0);
+  const genres  = [...new Set(data.map(d=>d.genre_name))].length;
+  const topCombo = [...data].sort((a,b)=>b.revenue-a.revenue)[0];
+  document.getElementById('summary-strip').innerHTML = `
+    <div class="summary-card"><div class="summary-val">${fmtN(totalRentals)}</div><div class="summary-label">Total Rentals</div></div>
+    <div class="summary-card"><div class="summary-val">$${(totalRevenue/1000).toFixed(1)}k</div><div class="summary-label">Total Revenue</div></div>
+    <div class="summary-card"><div class="summary-val">${genres}</div><div class="summary-label">Genres</div></div>
+    <div class="summary-card"><div class="summary-val" style="font-size:0.95rem;">${topCombo?topCombo.genre_name+' × '+topCombo.rating:'—'}</div><div class="summary-label">Best Combo</div></div>
+  `;
+}
+
+// ── Auto insight ───────────────────────────────────
+function buildInsight(data) {
+  const byGenre = {};
+  data.forEach(d => { if (!byGenre[d.genre_name]) byGenre[d.genre_name]={rentals:0,revenue:0}; byGenre[d.genre_name].rentals+=d.rentals; byGenre[d.genre_name].revenue+=d.revenue; });
+  const topG = Object.entries(byGenre).sort((a,b)=>b[1].revenue-a[1].revenue)[0];
+  const topCombo = [...data].sort((a,b)=>b.revenue-a.revenue)[0];
+  const topRating = RATINGS.map(r=>({ r, rev:data.filter(d=>d.rating===r).reduce((s,d)=>s+d.revenue,0) })).sort((a,b)=>b.rev-a.rev)[0];
+  document.getElementById('insight-strip').innerHTML =
+    `📊 <strong>${topG?topG[0]:'—'}</strong> is the highest-revenue genre with <strong>$${topG?(topG[1].revenue/1000).toFixed(1)+'k':'—'}</strong>. ` +
+    `Best single combination: <strong>${topCombo?topCombo.genre_name+' × '+topCombo.rating:'—'}</strong> ($${topCombo?topCombo.revenue.toFixed(0):'—'}). ` +
+    `Rating <strong>${topRating?topRating.r:'—'}</strong> generates the most revenue across all genres.`;
+}
+
+// ── Chart 1: Stacked Bar Chart - Rating Distribution by Genre ──────
+function buildRatingStacked(data) {
+  const genreTotals = {};
+  const genreFamilyRentals = {};
+  const genreMatureRentals = {};
+
+  data.forEach(d => {
+    const g = d.genre_name;
+    genreTotals[g] = (genreTotals[g] || 0) + d.rentals;
+    if (d.rating === 'G' || d.rating === 'PG') {
+      genreFamilyRentals[g] = (genreFamilyRentals[g] || 0) + d.rentals;
+    } else {
+      genreMatureRentals[g] = (genreMatureRentals[g] || 0) + d.rentals;
+    }
+  });
+
+  const genres = [...new Set(data.map(d=>d.genre_name))];
+  
+  const genreFamilyPct = {};
+  genres.forEach(g => {
+    const total = genreTotals[g] || 1;
+    const family = genreFamilyRentals[g] || 0;
+    genreFamilyPct[g] = Math.round((family / total) * 100);
+  });
+
+  // Sort genres by Family-Friendly percentage descending
+  genres.sort((a, b) => genreFamilyPct[b] - genreFamilyPct[a]);
+
+  const familyData = genres.map(g => genreFamilyPct[g]);
+  const matureData = genres.map(g => 100 - genreFamilyPct[g]);
+
+  const datasets = [
+    {
+      label: 'Family-Friendly (G & PG)',
+      data: familyData,
+      backgroundColor: '#26a69a', // Turquoise Green
+      borderWidth: 0,
+    },
+    {
+      label: 'Mature Audience (PG-13, R, NC-17)',
+      data: matureData,
+      backgroundColor: '#ff6f00', // Contrast Orange
+      borderWidth: 0,
+    }
+  ];
+
+  const ctx = document.getElementById('chart-rating-stacked').getContext('2d');
+  if (charts.ratingStacked) charts.ratingStacked.destroy();
+  charts.ratingStacked = new Chart(ctx, {
+    type:'bar',
+    data:{ labels:genres, datasets },
+    options:{
+      indexAxis:'y', responsive:true, maintainAspectRatio:false,
+      plugins:{
+        legend:{
+          position:'top',
+          labels:{
+            color: window.getThemeTextColor ? window.getThemeTextColor() : '#f5e6c8',
+            font:{family:'Cinzel,serif',size:10},
+            padding:12
+          }
+        },
+        tooltip:{
+          backgroundColor:'#1e0200', borderColor:'rgba(230,163,65,0.3)', borderWidth:1, titleColor:'#E6A341', bodyColor:'#f5e6c8',
+          callbacks:{
+            label:ctx => {
+              const genre = ctx.label;
+              const isFamily = ctx.datasetIndex === 0;
+              const val = ctx.raw; // percentage
+              const count = isFamily ? (genreFamilyRentals[genre] || 0) : (genreMatureRentals[genre] || 0);
+              return `${ctx.dataset.label}: ${val}% (${count.toLocaleString()} rentals)`;
+            }
+          }
+        }
+      },
+      scales:{
+        x:{ stacked:true, max:100, grid:{color:'rgba(230,163,65,0.06)'}, ticks:{font:{family:'JetBrains Mono,monospace',size:10}, callback: v => v + '%'} },
+        y:{ stacked:true, grid:{display:false}, ticks:{font:{size:11}} }
+      }
+    }
+  });
+}
+
+// ── Chart 3: Genre Popularity Bar Chart ─────────────
+function buildGenrePopularity(data) {
+  const byGenre = {};
+  data.forEach(d=>{ byGenre[d.genre_name]=(byGenre[d.genre_name]||0)+d.rentals; });
+  const sorted = Object.entries(byGenre).sort((a,b)=>b[1]-a[1]);
+  const ctx = document.getElementById('chart-genre-popularity').getContext('2d');
+  if (charts.popularity) charts.popularity.destroy();
+  charts.popularity = new Chart(ctx, {
+    type:'bar',
+    data:{ 
+      labels:sorted.map(e=>e[0]), 
+      datasets:[{ 
+        data:sorted.map(e=>e[1]), 
+        backgroundColor:COLORS, 
+        borderWidth:0, 
+        borderRadius:4 
+      }] 
+    },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      plugins:{ 
+        legend:{display:false}, 
+        tooltip:{backgroundColor:'#1e0200',borderColor:'rgba(230,163,65,0.3)',borderWidth:1,titleColor:'#E6A341',bodyColor:'#f5e6c8',callbacks:{label:ctx=>`${ctx.raw.toLocaleString()} rentals`}} 
+      },
+      scales:{ 
+        x:{grid:{display:false},ticks:{font:{size:10},maxRotation:45}}, 
+        y:{grid:{color:'rgba(230,163,65,0.06)'},ticks:{font:{family:'JetBrains Mono,monospace',size:10}}} 
+      }
+    }
+  });
+}
+
+// ── Chart 4: Overall Rating Distribution Donut ──────
+function buildRatingDonut(data) {
+  const ratingTotals = {};
+  RATINGS.forEach(r => { ratingTotals[r] = 0; });
+  data.forEach(d => {
+    ratingTotals[d.rating] = (ratingTotals[d.rating] || 0) + d.rentals;
+  });
+
+  const doughnutData = RATINGS.map(r => ratingTotals[r]);
+  const totalRentals = doughnutData.reduce((s,v)=>s+v, 0);
+
+  const ctx = document.getElementById('chart-rating-overall').getContext('2d');
+  if (charts.ratingDonut) charts.ratingDonut.destroy();
+  charts.ratingDonut = new Chart(ctx, {
+    type:'doughnut',
+    data:{
+      labels:RATINGS,
+      datasets:[{
+        data: doughnutData,
+        backgroundColor: RATINGS.map(r => RATING_COLORS[r] || '#ccc'),
+        borderWidth:1,
+        borderColor:'var(--bg)'
+      }]
+    },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      plugins:{
+        legend:{
+          position:'bottom',
+          labels:{
+            color: window.getThemeTextColor ? window.getThemeTextColor() : '#f5e6c8',
+            font:{family:'Cinzel,serif',size:9},
+            padding:8,
+            boxWidth:12
+          }
+        },
+        tooltip:{
+          backgroundColor:'#1e0200', borderColor:'rgba(230,163,65,0.3)', borderWidth:1, titleColor:'#E6A341', bodyColor:'#f5e6c8',
+          callbacks:{
+            label:ctx => {
+              const val = ctx.raw;
+              const pct = totalRentals > 0 ? ((val / totalRentals) * 100).toFixed(1) : 0;
+              return `${ctx.label}: ${val.toLocaleString()} rentals (${pct}%)`;
+            }
+          }
+        }
+      },
+      cutout:'60%'
+    }
+  });
+}
+
+// ── Chart 2: Top Genres per Rating ──────────────────
+function buildTopGenresPerRating(data) {
+  const container = document.getElementById('chart-heatmap');
+  if (!container) return;
+
+  container.innerHTML = '';
+
+  if (window._ratingChartInstances) {
+    window._ratingChartInstances.forEach(c => c.destroy());
+  }
+  window._ratingChartInstances = [];
+
+  RATINGS.forEach(r => {
+    const ratingData = data.filter(d => d.rating === r);
+    const topGenres = [...ratingData].sort((a,b) => b.rentals - a.rentals).slice(0, 5);
+
+    const panel = document.createElement('div');
+    panel.style.background = 'rgba(230,163,65,0.02)';
+    panel.style.border = '1px solid var(--border)';
+    panel.style.borderRadius = '6px';
+    panel.style.padding = '0.5rem';
+    panel.style.display = 'flex';
+    panel.style.flexDirection = 'column';
+
+    const title = document.createElement('div');
+    title.style.fontFamily = 'Cinzel, serif';
+    title.style.fontSize = '0.72rem';
+    title.style.fontWeight = 'bold';
+    title.style.color = RATING_COLORS[r] || 'var(--gold)';
+    title.style.textAlign = 'center';
+    title.style.marginBottom = '0.25rem';
+    title.style.paddingBottom = '0.25rem';
+    title.style.borderBottom = '1px solid var(--border)';
+    title.textContent = `Rating ${r}`;
+
+    const chartWrap = document.createElement('div');
+    chartWrap.style.flex = '1';
+    chartWrap.style.height = '120px';
+    chartWrap.style.position = 'relative';
+
+    const canvas = document.createElement('canvas');
+    chartWrap.appendChild(canvas);
+    panel.appendChild(title);
+    panel.appendChild(chartWrap);
+    container.appendChild(panel);
+
+    const ctx = canvas.getContext('2d');
+    const newChart = new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: topGenres.map(g => g.genre_name),
+        datasets: [{
+          data: topGenres.map(g => g.rentals),
+          backgroundColor: RATING_COLORS[r] || 'rgba(230,163,65,0.6)',
+          borderWidth: 0,
+          borderRadius: 2
+        }]
+      },
+      options: {
+        indexAxis: 'y',
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            backgroundColor: '#1e0200',
+            borderColor: 'rgba(230,163,65,0.3)',
+            borderWidth: 1,
+            titleColor: '#E6A341',
+            bodyColor: '#f5e6c8',
+            callbacks: {
+              label: ctx => `${ctx.raw.toLocaleString()} rentals`
+            }
+          }
+        },
+        scales: {
+          x: {
+            grid: { display: false },
+            ticks: {
+              font: { family: 'JetBrains Mono,monospace', size: 8 },
+              maxTicksLimit: 3
+            }
+          },
+          y: {
+            grid: { display: false },
+            ticks: {
+              font: { size: 9 },
+              color: window.getThemeTextColor ? window.getThemeTextColor() : '#f5e6c8'
+            }
+          }
+        }
+      }
+    });
+    window._ratingChartInstances.push(newChart);
+  });
+}
+
+
+
+// ── Table ──────────────────────────────────────────
+function renderTable(data) {
+  const tbody = document.getElementById('cross-tbody');
+  tbody.innerHTML = '';
+  data.forEach(d => {
+    const tr = document.createElement('tr');
+    const avg = d.rentals > 0 ? d.revenue/d.rentals : 0;
+    tr.innerHTML = `
+      <td>${d.genre_name}</td>
+      <td><span class="badge" style="background:rgba(230,163,65,0.15);color:var(--gold-lt);border:1px solid var(--border);">${d.rating}</span></td>
+      <td style="font-family:'JetBrains Mono',monospace;">${fmtN(d.rentals)}</td>
+      <td style="font-family:'JetBrains Mono',monospace;">${fmt(d.revenue)}</td>
+      <td style="font-family:'JetBrains Mono',monospace;">${fmt(avg)}</td>`;
+    tbody.appendChild(tr);
+  });
+}
+
+function filterTable() {
+  const q = document.getElementById('table-search').value.toLowerCase();
+  renderTable(tableData.filter(d=>d.genre_name.toLowerCase().includes(q)||d.rating.toLowerCase().includes(q)));
+}
+
+function sortTable(col) {
+  if (sortCol===col) sortDir=sortDir==='desc'?'asc':'desc'; else { sortCol=col; sortDir='desc'; }
+  document.querySelectorAll('.sort-arrow').forEach(el=>{el.classList.remove('active');el.textContent='↕';});
+  const ids={genre_name:'sa-genre',rating:'sa-rating',rentals:'sa-rentals',revenue:'sa-revenue',avg_revenue:'sa-avg'};
+  const el=document.getElementById(ids[col]);
+  if(el){el.classList.add('active');el.textContent=sortDir==='desc'?'↓':'↑';}
+  tableData.sort((a,b)=>{
+    const va=col==='avg_revenue'?(a.rentals?a.revenue/a.rentals:0):(a[col]??'');
+    const vb=col==='avg_revenue'?(b.rentals?b.revenue/b.rentals:0):(b[col]??'');
+    if(typeof va==='string') return sortDir==='desc'?vb.localeCompare(va):va.localeCompare(vb);
+    return sortDir==='desc'?vb-va:va-vb;
+  });
+  filterTable();
+}
+
+// ── Genre chips ────────────────────────────────────
+function buildChips(data) {
+  const genres = [...new Set(data.map(d=>d.genre_name))].sort();
+  const container = document.getElementById('genre-chips');
+  container.innerHTML = '';
+  const makeChip = (label, active, onClick) => {
+    const s = document.createElement('span');
+    s.className = 'chip' + (active?' active':'');
+    s.textContent = label;
+    s.onclick = onClick;
+    container.appendChild(s);
+  };
+  makeChip('All Genres', true, () => {
+    activeGenre = null;
+    document.querySelectorAll('.chip').forEach(c=>c.classList.remove('active'));
+    container.firstChild.classList.add('active');
+    applyFilter();
+  });
+  genres.forEach(g => makeChip(g, false, () => {
+    activeGenre = g;
+    document.querySelectorAll('.chip').forEach(c=>c.classList.remove('active'));
+    [...container.children].find(c=>c.textContent===g)?.classList.add('active');
+    applyFilter();
+  }));
+}
+
+function updateGenreChipsUI() {
+  const container = document.getElementById('genre-chips');
+  if (!container) return;
+  const chips = container.querySelectorAll('.chip');
+  chips.forEach(chip => {
+    const label = chip.textContent;
+    if (activeGenre === null && label === 'All Genres') {
+      chip.classList.add('active');
+    } else if (label === activeGenre) {
+      chip.classList.add('active');
+    } else {
+      chip.classList.remove('active');
+    }
+  });
+}
+
+function applyFilter() {
+  const fd = activeGenre ? crossData.filter(d=>d.genre_name===activeGenre) : crossData;
+  tableData = fd.map(d=>({...d, avg_revenue: d.rentals?d.revenue/d.rentals:0}));
+  buildRatingStacked(fd);
+  buildTopGenresPerRating(fd);
+  buildGenrePopularity(fd);
+  buildRatingDonut(fd);
+  buildSummary(fd);
+  buildInsight(fd);
+  renderTable(tableData);
+  updateGenreChipsUI();
+}
+
+// ── Top films table ────────────────────────────────
+function renderTopFilms(data) {
+  const tbody = document.getElementById('topfilms-tbody');
+  tbody.innerHTML = '';
+  data.forEach(d => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${d.genre_name}</td><td><span class="badge" style="background:rgba(230,163,65,0.15);color:var(--gold-lt);border:1px solid var(--border);">${d.rating}</span></td><td style="font-weight:600;">${d.title}</td><td style="font-family:'JetBrains Mono',monospace;">${fmtN(d.rentals)}</td><td style="font-family:'JetBrains Mono',monospace;">${fmt(d.revenue)}</td>`;
+    tbody.appendChild(tr);
+  });
+}
+
+// ── Load all ───────────────────────────────────────
+async function loadAll() {
+  document.getElementById('loading').style.display = 'flex';
+  document.getElementById('error-msg').style.display = 'none';
+  try {
+    const [crossRes, topRes] = await Promise.all([
+      fetch(BASE_URL+'/api/analysis/cross'),
+      fetch(BASE_URL+'/api/analysis/top-films'),
+    ]);
+    if (!crossRes.ok) throw new Error('HTTP '+crossRes.status);
+    crossData = await crossRes.json();
+    tableData  = crossData.map(d=>({...d, avg_revenue:d.rentals?d.revenue/d.rentals:0}));
+    buildChips(crossData);
+    buildSummary(crossData);
+    buildInsight(crossData);
+    buildRatingStacked(crossData);
+    buildTopGenresPerRating(crossData);
+    buildGenrePopularity(crossData);
+    buildRatingDonut(crossData);
+    renderTable(tableData);
+    if (topRes.ok) renderTopFilms(await topRes.json());
+  } catch(e) {
+    document.getElementById('error-msg').style.display = 'flex';
+    document.getElementById('error-text').textContent = 'Failed to load data: '+e.message;
+  } finally {
+    document.getElementById('loading').style.display = 'none';
+  }
+}
+
+// AI handlers
+window._filterData = function(cat, val) {
+  if (cat==='genre') { activeGenre=val; document.querySelectorAll('.chip').forEach(c=>{ if(c.textContent===val) c.classList.add('active'); else c.classList.remove('active'); }); applyFilter(); return 'Genre filter "'+val+'" applied.'; }
+  if (cat==='rating') { const fd=crossData.filter(d=>d.rating.toLowerCase()===val.toLowerCase()); tableData=fd.map(d=>({...d})); renderTable(tableData); buildRatingStacked(fd); buildTopGenresPerRating(fd); buildGenrePopularity(fd); buildRatingDonut(fd); return 'Rating filter "'+val+'" applied.'; }
+  return 'Unknown filter category.';
+};
+window._sortData = function(col, order) {
+  const map={revenue:'revenue',rentals:'rentals',name:'genre_name'};
+  const c=map[col]||'revenue';
+  tableData.sort((a,b)=>order==='asc'?a[c]-b[c]:b[c]-a[c]);
+  renderTable(tableData);
+  return 'Sorted by "'+col+'" ('+order+').';
+};
+
+loadAll();
+</script>
+</body>
+</html>
