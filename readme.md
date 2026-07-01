@@ -158,3 +158,8 @@ The chatbot panel (accessible via the floating bottom-right button) is fully loc
 - *"Forecast stock requirements for the movie Blade"*
 - *"Export the current table data to CSV"*
 - *"Switch the theme to Midnight Blue"*
+
+## Kontributor
+- Athira Tsaabitha
+- Hamidah Alya
+- Theresa Purba
